@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get project
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -25,28 +25,16 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Install Capacitor
-        run: |
-          npm install
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+      - name: Install dependencies
+        run: npm install
 
-      - name: Create web folder
-        run: |
-          mkdir -p www
-          cp -r index.html www/
-          cp -r src www/ || true
-
-      - name: Create Capacitor config
-        run: |
-          cat > capacitor.config.json <<'EOF'
-          {
-            "appId": "com.wsalni.monfuia",
-            "appName": "وصلني المنوفية",
-            "webDir": "www"
-          }
-          EOF
+      - name: Build Vite app
+        run: npm run build
 
       - name: Install Capacitor Android
+        run: npm install @capacitor/cli @capacitor/android
+
+      - name: Add Android
         run: npx cap add android
 
       - name: Sync Capacitor
