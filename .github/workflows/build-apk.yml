@@ -22,11 +22,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-     - name: Install Capacitor Android
-  run: npm install @capacitor/android
+      - name: Install Capacitor Android
+        run: npm install @capacitor/android
 
-- name: Add Android platform
-  run: npx cap add android 
+      - name: Add Android platform
+        run: npx cap add android
 
       - name: Sync Capacitor
         run: npx cap sync android
@@ -38,8 +38,10 @@ jobs:
           java-version: 17
 
       - name: Build APK
-        working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
