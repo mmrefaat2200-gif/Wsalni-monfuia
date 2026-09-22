@@ -25,16 +25,16 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Create package.json if missing
-        run: |
-          if [ ! -f package.json ]; then
-            npm init -y
-          fi
-
-      - name: Install dependencies
+      - name: Install Capacitor
         run: |
           npm install
           npm install @capacitor/core @capacitor/cli @capacitor/android
+
+      - name: Create web folder
+        run: |
+          mkdir -p www
+          cp -r index.html www/
+          cp -r src www/ || true
 
       - name: Create Capacitor config
         run: |
@@ -42,17 +42,15 @@ jobs:
           {
             "appId": "com.wsalni.monfuia",
             "appName": "وصلني المنوفية",
-            "webDir": "."
+            "webDir": "www"
           }
           EOF
 
       - name: Install Capacitor Android
-        run: |
-          npx cap add android
+        run: npx cap add android
 
       - name: Sync Capacitor
-        run: |
-          npx cap sync android
+        run: npx cap sync android
 
       - name: Build APK
         run: |
