@@ -18,7 +18,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -30,13 +29,6 @@ jobs:
         run: npm install
 
       - name: Build Vite app
-        env:
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
         run: npm run build
 
       - name: Install Capacitor CLI and Android
@@ -53,20 +45,18 @@ jobs:
           path = Path("android/app/src/main/AndroidManifest.xml")
           text = path.read_text()
 
+          marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+
           permissions = """
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
           """
 
-          marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
-
           if "android.permission.ACCESS_FINE_LOCATION" not in text:
-              text = text.replace(
-                  marker,
-                  marker + permissions
-              )
+              text = text.replace(marker, marker + permissions)
 
           path.write_text(text)
+
           print("Location permissions added successfully.")
           PY
 
