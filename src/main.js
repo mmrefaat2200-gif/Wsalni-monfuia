@@ -90,6 +90,10 @@ const offerUnsubs = new Map();
 let openRidesCache = [];
 const sentOffers = new Set();
 
+let homeMap = null;
+let homeMarkers = [];
+let lastGeoResults = [];
+
 let map = null;
 let mapMode = "destination";
 let pendingCoords = null;
@@ -400,6 +404,12 @@ appElement.innerHTML = `
     <small>حدد الميعاد المتوقع للوصول أو الموعد المطلوب للنزول.</small>
   </div>
 
+  <div id="homeMapCard" class="card" style="display:none">
+    <label>🗺️ الرحلة على الخريطة</label>
+    <div id="homeMap" style="height:230px;width:100%;border-radius:14px;margin-top:8px;"></div>
+    <small>أ = مكان الالتقاء ، ب = مكان النزول</small>
+  </div>
+
   <div id="routeCard" class="card" style="display:none">
     <h3>🛣️ تفاصيل الرحلة</h3>
     <div id="routeInfo" class="status">جاري حساب المسافة والوقت...</div>
@@ -452,6 +462,7 @@ appElement.innerHTML = `
     <input id="destinationSearch" type="search"
       placeholder="اكتب اسم المكان أو الشارع أو المدينة..." autocomplete="off">
     <div id="searchResults" style="display:none;max-height:240px;overflow:auto;margin-top:8px;"></div>
+    <button id="mapMyLocationBtn" class="btn outline" type="button" style="margin-top:8px">📍 روح لموقعي الحالي</button>
   </div>
 
   <div id="mapContainer" class="map" style="position:relative">
@@ -601,6 +612,67 @@ function updateLocationFields() {
   $("#destinationInfo").innerHTML = selectedDestination
     ? `🏁 <strong>${escapeHtml(selectedDestination)}</strong>`
     : "لم يتم تحديد مكان النزول";
+
+  updateHomeMap();
+}
+
+async function updateHomeMap() {
+  const card = $("#homeMapCard");
+  if (!card) return;
+
+  if (!selectedPickupCoords && !selectedDestinationCoords) {
+    card.style.display = "none";
+    return;
+  }
+
+  card.style.display = "block";
+
+  try {
+    await loadGoogleMaps();
+
+    const first = selectedPickupCoords || selectedDestinationCoords;
+
+    if (!homeMap) {
+      homeMap = new google.maps.Map($("#homeMap"), {
+        center: first,
+        zoom: 16,
+        disableDefaultUI: true,
+        zoomControl: true,
+        gestureHandling: "cooperative"
+      });
+    }
+
+    homeMarkers.forEach((m) => m.setMap(null));
+    homeMarkers = [];
+
+    const bounds = new google.maps.LatLngBounds();
+
+    if (selectedPickupCoords) {
+      homeMarkers.push(
+        new google.maps.Marker({ position: selectedPickupCoords, map: homeMap, label: "أ", title: "الالتقاء" })
+      );
+      bounds.extend(selectedPickupCoords);
+    }
+
+    if (selectedDestinationCoords) {
+      homeMarkers.push(
+        new google.maps.Marker({ position: selectedDestinationCoords, map: homeMap, label: "ب", title: "النزول" })
+      );
+      bounds.extend(selectedDestinationCoords);
+    }
+
+    google.maps.event.trigger(homeMap, "resize");
+
+    if (selectedPickupCoords && selectedDestinationCoords) {
+      homeMap.fitBounds(bounds, 40);
+    } else {
+      homeMap.setCenter(first);
+      homeMap.setZoom(16);
+    }
+  } catch (error) {
+    console.error(error);
+    card.style.display = "none";
+  }
 }
 
 /* ======================================================
@@ -715,7 +787,7 @@ async function getDeviceLocation() {
   }
 }
 
-$("#fromPlace").addEventListener("click", async () => {
+async function useCurrentLocation({ silent = false } = {}) {
   const button = $("#fromPlace");
 
   button.disabled = true;
@@ -731,27 +803,40 @@ $("#fromPlace").addEventListener("click", async () => {
     selectedPickup = await getAddressFromCoordinates(position.lat, position.lng);
     updateLocationFields();
 
-    showMessage(
-      `تم تحديد مكان الالتقاء. دقة الموقع حوالي ${Math.round(position.accuracy || 0)} متر.`,
-      "success"
-    );
+    if (!silent) {
+      showMessage(
+        `تم تحديد مكان الالتقاء. دقة الموقع حوالي ${Math.round(position.accuracy || 0)} متر.`,
+        "success"
+      );
+    }
 
     button.textContent = "📍 تم تحديد موقعي";
     await calculateRoute();
   } catch (error) {
     console.error(error);
 
-    if (error?.message === "LOCATION_PERMISSION_DENIED" || error?.code === 1) {
-      showMessage("اسمح للتطبيق باستخدام موقعك الحالي من إعدادات الإذن.", "error");
+    if (silent) {
+      button.textContent = "📍 استخدم موقعي الحالي";
     } else {
-      showMessage("تعذر تحديد موقعك. شغّل GPS وحاول مرة أخرى.", "error");
+      if (error?.message === "LOCATION_PERMISSION_DENIED" || error?.code === 1) {
+        showMessage("اسمح للتطبيق باستخدام موقعك الحالي من إعدادات الإذن.", "error");
+      } else {
+        showMessage("تعذر تحديد موقعك. شغّل GPS وحاول مرة أخرى.", "error");
+      }
+      button.textContent = "📍 حاول مرة أخرى";
     }
-
-    button.textContent = "📍 حاول مرة أخرى";
   } finally {
     button.disabled = false;
   }
-});
+}
+
+$("#fromPlace").addEventListener("click", () => useCurrentLocation());
+
+// أول ما التطبيق يفتح: يجيب موقعك لوحده (لو رفضت الإذن مش هيزعجك)
+function autoDetectPickup() {
+  if (selectedPickupCoords) return;
+  useCurrentLocation({ silent: true });
+}
 
 /* ======================================================
    MAP PICKER (pickup / destination)
@@ -868,6 +953,12 @@ $("#closeMapBtn").addEventListener("click", () => showScreen("homeScreen"));
    MAP SEARCH
 ====================================================== */
 
+function moveMapTo(coords, zoom = 18) {
+  if (!map) return;
+  map.setCenter(coords);
+  map.setZoom(zoom);
+}
+
 $("#destinationSearch").addEventListener("input", () => {
   clearTimeout(mapSearchTimer);
 
@@ -882,7 +973,65 @@ $("#destinationSearch").addEventListener("input", () => {
   mapSearchTimer = setTimeout(() => searchPlaces(value), 500);
 });
 
-async function searchPlaces(text) {
+// Enter / زر البحث في الكيبورد: يروح لأول نتيجة على طول
+$("#destinationSearch").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+
+  e.preventDefault();
+  clearTimeout(mapSearchTimer);
+
+  const value = $("#destinationSearch").value.trim();
+  if (value.length >= 2) searchPlaces(value, { pickFirst: true });
+});
+
+$("#mapMyLocationBtn").addEventListener("click", async () => {
+  const button = $("#mapMyLocationBtn");
+
+  button.disabled = true;
+
+  try {
+    const position = await getDeviceLocation();
+    moveMapTo({ lat: position.lat, lng: position.lng }, 18);
+  } catch (error) {
+    console.error(error);
+    showMessage("تعذر تحديد موقعك. شغّل GPS واسمح بالإذن.", "error");
+  } finally {
+    button.disabled = false;
+  }
+});
+
+function getPredictions(text) {
+  return new Promise((resolve) => {
+    try {
+      new google.maps.places.AutocompleteService().getPlacePredictions(
+        {
+          input: text,
+          componentRestrictions: { country: "eg" },
+          language: "ar"
+        },
+        (predictions, status) => {
+          resolve(
+            status === google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : []
+          );
+        }
+      );
+    } catch (error) {
+      console.error(error);
+      resolve([]);
+    }
+  });
+}
+
+function renderResultButton(title, subtitle, attrs) {
+  return `
+    <button type="button" class="search-result" ${attrs}
+      style="display:block;width:100%;text-align:right;padding:12px;margin-bottom:6px;border:1px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;">
+      <strong>${escapeHtml(title)}</strong><br>
+      <small>${escapeHtml(subtitle || "")}</small>
+    </button>`;
+}
+
+async function searchPlaces(text, { pickFirst = false } = {}) {
   const resultsBox = $("#searchResults");
 
   resultsBox.style.display = "block";
@@ -891,75 +1040,100 @@ async function searchPlaces(text) {
   try {
     await loadGoogleMaps();
 
-    const service = new google.maps.places.AutocompleteService();
+    // 1) اقتراحات الكتابة (Places Autocomplete)
+    const predictions = await getPredictions(text);
 
-    service.getPlacePredictions(
-      {
-        input: text,
-        componentRestrictions: { country: "eg" },
-        language: "ar"
-      },
-      (predictions, status) => {
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions?.length) {
-          resultsBox.innerHTML = `<div class="card">لا توجد نتائج.</div>`;
-          return;
-        }
-
-        resultsBox.innerHTML = predictions
-          .slice(0, 8)
-          .map(
-            (p) => `
-            <button type="button" class="search-result" data-place-id="${escapeHtml(p.place_id)}"
-              style="display:block;width:100%;text-align:right;padding:12px;margin-bottom:6px;border:1px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;">
-              <strong>${escapeHtml(p.structured_formatting?.main_text || p.description)}</strong><br>
-              <small>${escapeHtml(p.structured_formatting?.secondary_text || "")}</small>
-            </button>`
-          )
-          .join("");
-
-        resultsBox.querySelectorAll(".search-result").forEach((button) => {
-          button.addEventListener("click", () => selectPlace(button.dataset.placeId));
-        });
+    if (predictions.length) {
+      if (pickFirst) {
+        const p = predictions[0];
+        selectPlace(p.place_id, p.structured_formatting?.main_text || p.description);
+        return;
       }
-    );
+
+      resultsBox.innerHTML = predictions
+        .slice(0, 8)
+        .map((p) =>
+          renderResultButton(
+            p.structured_formatting?.main_text || p.description,
+            p.structured_formatting?.secondary_text,
+            `data-place-id="${escapeHtml(p.place_id)}" data-label="${escapeHtml(
+              p.structured_formatting?.main_text || p.description
+            )}"`
+          )
+        )
+        .join("");
+
+      resultsBox.querySelectorAll(".search-result").forEach((button) => {
+        button.addEventListener("click", () =>
+          selectPlace(button.dataset.placeId, button.dataset.label)
+        );
+      });
+
+      return;
+    }
+
+    // 2) لو مفيش اقتراحات (أو Places مش متفعّلة): بحث بالاسم عن طريق Geocoding
+    let results = [];
+
+    try {
+      const response = await new google.maps.Geocoder().geocode({
+        address: text,
+        region: "EG",
+        componentRestrictions: { country: "EG" }
+      });
+      results = response.results || [];
+    } catch (error) {
+      console.error(error);
+    }
+
+    if (!results.length) {
+      resultsBox.innerHTML = `<div class="card">لا توجد نتائج. جرّب اسم تاني أو اكتب اسم المدينة.</div>`;
+      return;
+    }
+
+    lastGeoResults = results;
+
+    if (pickFirst) {
+      applySearchResult(results[0]);
+      return;
+    }
+
+    resultsBox.innerHTML = results
+      .slice(0, 6)
+      .map((r, i) => renderResultButton(r.formatted_address, "", `data-geo-index="${i}"`))
+      .join("");
+
+    resultsBox.querySelectorAll(".search-result").forEach((button) => {
+      button.addEventListener("click", () =>
+        applySearchResult(lastGeoResults[Number(button.dataset.geoIndex)])
+      );
+    });
   } catch (error) {
     console.error(error);
-    resultsBox.innerHTML = `<div class="card error">تعذر البحث عن المكان.</div>`;
+    resultsBox.innerHTML = `<div class="card error">تعذر البحث عن المكان. تأكد من إعدادات Google Maps.</div>`;
   }
 }
 
-async function selectPlace(placeId) {
+function applySearchResult(result, label) {
+  const location = result?.geometry?.location;
+
+  if (!location) {
+    showMessage("تعذر تحديد المكان.", "error");
+    return;
+  }
+
+  moveMapTo({ lat: location.lat(), lng: location.lng() }, 18);
+
+  $("#destinationSearch").value = label || result.formatted_address || "";
+  $("#searchResults").style.display = "none";
+}
+
+async function selectPlace(placeId, label) {
   try {
     await loadGoogleMaps();
 
-    const service = new google.maps.places.PlacesService(document.createElement("div"));
-
-    service.getDetails(
-      {
-        placeId,
-        fields: ["geometry", "formatted_address", "name"],
-        language: "ar"
-      },
-      (place, status) => {
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !place?.geometry?.location) {
-          showMessage("تعذر تحديد المكان.", "error");
-          return;
-        }
-
-        const coords = {
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng()
-        };
-
-        if (map) {
-          map.setCenter(coords);
-          map.setZoom(18);
-        }
-
-        $("#destinationSearch").value = place.name || place.formatted_address || "";
-        $("#searchResults").style.display = "none";
-      }
-    );
+    const response = await new google.maps.Geocoder().geocode({ placeId });
+    applySearchResult(response.results?.[0], label);
   } catch (error) {
     console.error(error);
     showMessage("تعذر تحديد المكان.", "error");
@@ -1843,5 +2017,7 @@ $("#dropoffDateTime").min = nowLocalInput();
 
 updateLocationFields();
 showScreen("homeScreen");
+
+autoDetectPickup();
 
 console.log("وصلني المنوفية يعمل بنجاح 🚕");
