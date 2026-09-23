@@ -123,15 +123,40 @@ button:disabled {
    ====================================================== */
 
 .screen {
-  display: none;
+/* ======================================================
+   SCREENS
+   ====================================================== */
+
+.screen {
+  display: block;
+
+  width: 100%;
 
   padding: 18px 17px 105px;
 
   animation: screenIn 0.22s ease;
 }
 
+/* إخفاء الصفحات غير المستخدمة */
+.screen.hidden {
+  display: none !important;
+}
+
+/* الصفحة النشطة */
 .screen.active {
-  display: block;
+  display: block !important;
+}
+
+@keyframes screenIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes screenIn {
