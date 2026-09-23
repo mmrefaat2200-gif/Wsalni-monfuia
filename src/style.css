@@ -1,1042 +1,606 @@
+/* =====================================================
+   وصلني المنوفية
+   GLOBAL STYLE
+   ===================================================== */
+
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-:root {
-  font-family: Tahoma, Arial, sans-serif;
-  color: #12304a;
-  background: #f3f8fb;
-  --blue: #0878df;
-  --green: #20a65a;
-  --text: #12304a;
-  --muted: #718496;
-  --border: #e5edf2;
-  --danger: #c73535;
-  --white: #ffffff;
-}
 
-html {
+html,
+body {
+  width: 100%;
   min-height: 100%;
-  background: #f3f8fb;
 }
+
 
 body {
-  margin: 0;
-  min-height: 100vh;
-  background: #f3f8fb;
   direction: rtl;
-}
+  font-family:
+    Arial,
+    Tahoma,
+    sans-serif;
 
-button,
-input,
-select {
-  font: inherit;
-}
+  background: #f5f7f8;
+  color: #1f2937;
 
-button {
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.app {
-  width: 100%;
-  max-width: 460px;
-  min-height: 100vh;
-  margin: auto;
-  background: #ffffff;
-  box-shadow: 0 0 30px #0001;
-  position: relative;
   overflow-x: hidden;
 }
 
 
-/* ======================================================
-   HEADER
-   ====================================================== */
+/* =====================================================
+   APP
+   ===================================================== */
 
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-
+#app {
   width: 100%;
-
-  background: rgba(255, 255, 255, 0.96);
-
-  padding: 15px 17px;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  border-bottom: 1px solid #edf2f5;
-
-  backdrop-filter: blur(10px);
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-
-  font-size: 21px;
-  font-weight: 900;
-
-  color: var(--blue);
-
-  white-space: nowrap;
-}
-
-.logo span {
-  color: var(--green);
-}
-
-.icon-button {
-  width: 43px;
-  height: 43px;
-
-  border: 0;
-  border-radius: 50%;
-
-  background: #eef6ff;
-
-  display: grid;
-  place-items: center;
-
-  font-size: 21px;
-
-  transition: 0.2s;
-}
-
-.icon-button:active {
-  transform: scale(0.94);
+  min-height: 100vh;
+  max-width: 600px;
+  margin: 0 auto;
+  background: #f5f7f8;
+  position: relative;
 }
 
 
-/* ======================================================
+/* =====================================================
    SCREENS
-   ====================================================== */
+   ===================================================== */
 
 .screen {
-/* ======================================================
-   SCREENS
-   ====================================================== */
-
-.screen {
-  display: block;
-
-  width: 100%;
-
-  padding: 18px 17px 105px;
-
-  animation: screenIn 0.22s ease;
+  display: none;
+  min-height: 100vh;
+  padding-bottom: 85px;
 }
 
-/* إخفاء الصفحات غير المستخدمة */
-.screen.hidden {
-  display: none !important;
-}
 
-/* الصفحة النشطة */
 .screen.active {
-  display: block !important;
-}
-
-@keyframes screenIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes screenIn {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  display: block;
 }
 
 
-/* ======================================================
-   HERO
-   ====================================================== */
+/* =====================================================
+   HEADER
+   ===================================================== */
 
-.hero {
-  background: linear-gradient(
-    135deg,
-    #0878df,
-    #20a65a
-  );
-
-  color: #fff;
-
-  border-radius: 22px;
-
-  padding: 21px 18px;
-
-  margin-bottom: 15px;
-
-  box-shadow: 0 12px 28px #0878df22;
+.app-header {
+  padding: 22px 18px;
+  background: #0f766e;
+  color: white;
+  border-radius: 0 0 24px 24px;
+  text-align: center;
 }
 
-.hero h1,
-.hero h2 {
-  margin: 0 0 9px;
 
-  font-size: 23px;
-
-  line-height: 1.4;
+.app-header h2 {
+  font-size: 24px;
+  margin-bottom: 6px;
 }
 
-.hero p {
-  margin: 0;
 
-  opacity: 0.92;
-
+.app-header p {
   font-size: 14px;
-
-  line-height: 1.8;
+  opacity: 0.9;
 }
 
 
-/* ======================================================
-   HEADINGS
-   ====================================================== */
-
-h1,
-h2,
-h3 {
-  margin-top: 7px;
-  margin-bottom: 14px;
-
-  line-height: 1.4;
-}
-
-h2 {
-  font-size: 21px;
-}
-
-h3 {
-  font-size: 17px;
-}
-
-
-/* ======================================================
+/* =====================================================
    CARDS
-   ====================================================== */
+   ===================================================== */
 
-.card {
-  background: #fff;
-
-  border: 1px solid var(--border);
-
-  border-radius: 20px;
-
-  padding: 15px;
-
-  margin-bottom: 14px;
-
-  box-shadow: 0 7px 22px #0b75d40d;
+.ride-card,
+.auth-card,
+.profile-card,
+.ride-item,
+.offer-item {
+  background: white;
+  margin: 15px;
+  padding: 18px;
+  border-radius: 18px;
+  box-shadow:
+    0 5px 20px rgba(0, 0, 0, 0.07);
 }
 
 
-/* ======================================================
-   TEXT
-   ====================================================== */
-
-.muted {
-  color: var(--muted);
-
-  font-size: 14px;
-
-  line-height: 1.7;
-}
-
-small {
-  color: var(--muted);
-
-  font-size: 12px;
-
-  line-height: 1.7;
-}
-
-
-/* ======================================================
-   LABEL
-   ====================================================== */
+/* =====================================================
+   LABELS
+   ===================================================== */
 
 label {
   display: block;
-
-  font-weight: 900;
-
+  margin: 14px 0 7px;
+  font-weight: bold;
   font-size: 14px;
-
-  margin-top: 5px;
-
-  margin-bottom: 7px;
 }
 
 
-/* ======================================================
-   INPUT
-   ====================================================== */
+/* =====================================================
+   INPUTS
+   ===================================================== */
 
 input,
+textarea,
 select {
   width: 100%;
-
-  padding: 14px;
-
-  border: 1px solid #d7e4eb;
-
-  border-radius: 14px;
-
-  margin: 7px 0 10px;
-
+  border: 1px solid #d9dee3;
   background: #fff;
-
-  color: var(--text);
-
+  border-radius: 13px;
+  padding: 13px;
+  font-size: 15px;
   outline: none;
-
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-
   direction: rtl;
 }
 
-input::placeholder {
-  color: #9aaab6;
-}
 
 input:focus,
+textarea:focus,
 select:focus {
-  border-color: var(--blue);
-
+  border-color: #0f766e;
   box-shadow:
-    0 0 0 3px #0878df16;
+    0 0 0 2px rgba(15, 118, 110, 0.12);
 }
 
 
-/* ======================================================
-   BUTTONS
-   ====================================================== */
-
-.btn {
-  width: 100%;
-
-  border: 0;
-
-  border-radius: 14px;
-
-  padding: 14px 15px;
-
-  font-weight: 900;
-
-  margin-top: 8px;
-
-  min-height: 48px;
-
-  transition:
-    transform 0.15s,
-    opacity 0.15s,
-    box-shadow 0.15s;
-}
-
-.btn:active {
-  transform: scale(0.98);
-}
-
-.primary {
-  background: var(--blue);
-
-  color: #fff;
-
-  box-shadow: 0 7px 18px #0878df25;
-}
-
-.green {
-  background: var(--green);
-
-  color: #fff;
-
-  box-shadow: 0 7px 18px #20a65a25;
-}
-
-.outline {
-  background: #fff;
-
-  color: var(--blue);
-
-  border: 2px solid var(--blue);
-
-  box-shadow: none;
-}
-
-.danger {
-  background: #fff0f0;
-
-  color: var(--danger);
-
-  border: 1px solid #ffcaca;
+textarea {
+  min-height: 90px;
+  resize: vertical;
 }
 
 
-/* ======================================================
-   LOCATION STATUS
-   ====================================================== */
+/* =====================================================
+   LOCATION
+   ===================================================== */
 
-.status {
-  padding: 12px 13px;
-
-  border-radius: 13px;
-
-  background: #f5f8fa;
-
-  margin-top: 10px;
-
-  font-size: 13px;
-
-  line-height: 1.8;
-
-  word-break: break-word;
-}
-
-.status strong {
-  color: var(--text);
-}
-
-#pickupInfo {
-  background: #eef8f2;
-  color: #176d3d;
-}
-
-#destinationInfo {
-  background: #eef6ff;
-  color: #075fae;
-}
-
-
-/* ======================================================
-   MESSAGE BOX
-   ====================================================== */
-
-.message-box {
-  position: fixed;
-
-  top: 72px;
-
-  left: 50%;
-
-  transform: translateX(-50%);
-
-  width: min(430px, calc(100% - 24px));
-
-  z-index: 200;
-
-  padding: 13px 15px;
-
-  border-radius: 14px;
-
-  font-size: 14px;
-
-  font-weight: 800;
-
-  line-height: 1.6;
-
-  box-shadow: 0 10px 30px #0002;
-
-  text-align: center;
-
-  animation: messageIn 0.25s ease;
-}
-
-.message-box.info {
-  background: #eef6ff;
-  color: #075fae;
-  border: 1px solid #cfe5fb;
-}
-
-.message-box.success {
-  background: #e9f8ef;
-  color: #15743e;
-  border: 1px solid #c8ecd6;
-}
-
-.message-box.error {
-  background: #fff0f0;
-  color: #a62626;
-  border: 1px solid #ffcaca;
-}
-
-@keyframes messageIn {
-  from {
-    opacity: 0;
-    transform:
-      translate(-50%, -8px);
-  }
-
-  to {
-    opacity: 1;
-    transform:
-      translate(-50%, 0);
-  }
-}
-
-
-/* ======================================================
-   MAP
-   ====================================================== */
-
-.map {
-  position: relative;
-
-  height: 350px;
-
-  width: 100%;
-
-  border-radius: 20px;
-
-  overflow: hidden;
-
-  background: #eaf3f8;
-
-  margin-bottom: 14px;
-
-  border: 1px solid #dce9ef;
-
-  box-shadow: 0 8px 25px #0878df12;
-}
-
-#map {
-  width: 100%;
-
-  height: 100%;
-}
-
-
-/*
-   علامة المنتصف الخاصة بتحديد مكان النزول
-*/
-
-#mapContainer::after {
-  content: "📍";
-
-  position: absolute;
-
-  left: 50%;
-
-  top: 50%;
-
-  transform:
-    translate(-50%, -100%);
-
-  z-index: 5;
-
-  font-size: 38px;
-
-  pointer-events: none;
-
-  filter:
-    drop-shadow(0 3px 3px #0004);
-}
-
-
-/* ======================================================
-   MAP HEADER
-   ====================================================== */
-
-#mapScreen .card:first-child {
-  padding: 13px;
-
-  margin-bottom: 10px;
-}
-
-.switch {
+.location-row {
   display: flex;
-
-  align-items: center;
-
-  justify-content: space-between;
-
-  gap: 10px;
-}
-
-.switch h2 {
-  margin: 0 0 3px;
-
-  font-size: 18px;
-}
-
-.switch small {
-  display: block;
-
-  max-width: 270px;
-}
-
-
-/* ======================================================
-   MAP ADDRESS
-   ====================================================== */
-
-#mapSelectedAddress {
-  background: #eef6ff;
-
-  color: #075fae;
-
-  text-align: center;
-
-  font-weight: 800;
-}
-
-#mapSelectedAddress small {
-  direction: ltr;
-
-  display: inline-block;
-
-  margin-top: 3px;
-
-  color: #54728a;
-}
-
-#mapSelectedAddress hr {
-  border: 0;
-
-  border-top: 1px solid #dceaf5;
-
-  margin: 9px 0;
-}
-
-
-/* ======================================================
-   AUTH
-   ====================================================== */
-
-#authScreen {
-  padding-top: 30px;
-}
-
-#authScreen .card {
-  padding: 20px 17px;
-
-  text-align: center;
-}
-
-#authScreen h2 {
-  margin-top: 15px;
-}
-
-#authScreen input {
-  text-align: center;
-}
-
-#recaptcha {
-  margin: 12px auto;
-
-  display: flex;
-
-  justify-content: center;
-
-  overflow: hidden;
-}
-
-#authMsg {
-  min-height: 20px;
-
-  text-align: center;
-
-  background: #f5f8fa;
-}
-
-
-/* ======================================================
-   AVATAR
-   ====================================================== */
-
-.avatar {
-  width: 62px;
-
-  height: 62px;
-
-  border-radius: 50%;
-
-  background: #dfeefa;
-
-  display: grid;
-
-  place-items: center;
-
-  font-size: 27px;
-
-  margin: 0 auto;
-}
-
-
-/* ======================================================
-   CAPTAIN
-   ====================================================== */
-
-.rides-list {
-  width: 100%;
-}
-
-.rides-list .card {
-  position: relative;
-
-  overflow: hidden;
-}
-
-.offer {
-  display: flex;
-
-  justify-content: space-between;
-
-  align-items: center;
-
-  gap: 10px;
-}
-
-.offer h3 {
-  margin: 7px 0 0;
-}
-
-.offer-actions {
-  margin-top: 10px;
-}
-
-.price {
-  font-size: 24px;
-
-  font-weight: 900;
-
-  color: var(--blue);
-
-  white-space: nowrap;
-}
-
-.pill {
-  display: inline-block;
-
-  padding: 5px 10px;
-
-  border-radius: 99px;
-
-  background: #eef6ff;
-
-  color: var(--blue);
-
-  font-size: 11px;
-
-  font-weight: 900;
-}
-
-
-/* ======================================================
-   GRID
-   ====================================================== */
-
-.row {
-  display: grid;
-
-  grid-template-columns: 1fr 1fr;
-
-  gap: 9px;
-}
-
-.three {
-  display: grid;
-
-  grid-template-columns:
-    1fr 1fr 1fr;
-
   gap: 8px;
 }
 
 
-/* ======================================================
-   ERROR
-   ====================================================== */
-
-.error {
-  background: #fff0f0 !important;
-
-  color: #a62626 !important;
-
-  border-color: #ffcaca !important;
+.location-row input {
+  flex: 1;
 }
 
 
-/* ======================================================
-   PROFILE
-   ====================================================== */
-
-#profileScreen .card {
-  text-align: center;
+.location-row button {
+  width: 52px;
+  border: 0;
+  border-radius: 13px;
+  background: #e6f7f5;
+  color: #0f766e;
+  font-size: 21px;
 }
 
-#profileInfo {
+
+.location-select {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #d9dee3;
+  border-radius: 13px;
+  background: white;
   text-align: right;
-
-  margin-top: 15px;
-
-  background: #f7fafc;
+  font-size: 15px;
+  color: #555;
 }
 
 
-/* ======================================================
+/* =====================================================
+   BUTTONS
+   ===================================================== */
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+
+.primary-btn {
+  width: 100%;
+  margin-top: 15px;
+  padding: 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #0f766e;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+
+.primary-btn:active {
+  transform: scale(0.98);
+}
+
+
+.danger-btn {
+  width: calc(100% - 30px);
+  margin: 15px;
+  padding: 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #dc2626;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+
+/* =====================================================
    BOTTOM NAV
-   ====================================================== */
+   ===================================================== */
 
-.nav {
+.bottom-nav {
   position: fixed;
-
   bottom: 0;
-
   left: 50%;
+  transform: translateX(-50%);
 
-  transform:
-    translateX(-50%);
+  width: 100%;
+  max-width: 600px;
 
-  width: min(460px, 100%);
+  height: 72px;
 
-  background: rgba(255, 255, 255, 0.97);
+  background: white;
 
-  border-top: 1px solid #e7eef3;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
 
-  display: grid;
+  border-top: 1px solid #e5e7eb;
 
-  grid-template-columns:
-    repeat(3, 1fr);
-
-  padding: 8px 7px;
-
-  z-index: 100;
-
-  backdrop-filter: blur(12px);
+  z-index: 5000;
 
   box-shadow:
-    0 -5px 20px #00000008;
+    0 -5px 20px rgba(0, 0, 0, 0.06);
 }
 
-.nav button {
+
+.bottom-nav button {
   border: 0;
+  background: transparent;
+  color: #6b7280;
 
-  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 
-  color: #718496;
+  gap: 4px;
 
-  font-size: 12px;
+  font-size: 20px;
+}
 
-  font-weight: 700;
 
-  padding: 6px 4px;
+.bottom-nav button span {
+  font-size: 11px;
+}
+
+
+.bottom-nav button:active {
+  color: #0f766e;
+}
+
+
+/* =====================================================
+   MAP HEADER
+   ===================================================== */
+
+.map-header {
+  height: 60px;
+
+  background: #0f766e;
+  color: white;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 14px;
+
+  gap: 15px;
+}
+
+
+.map-header h3 {
+  flex: 1;
+  text-align: center;
+  font-size: 18px;
+}
+
+
+.map-header button {
+  width: 40px;
+  height: 40px;
+
+  border: 0;
+  border-radius: 12px;
+
+  background: rgba(255, 255, 255, 0.18);
+
+  color: white;
+
+  font-size: 20px;
+}
+
+
+/* =====================================================
+   MAP
+   ===================================================== */
+
+#map {
+  width: 100% !important;
+
+  height: 58vh !important;
+
+  min-height: 380px;
+
+  background: #e5e7eb;
+
+  position: relative;
+
+  z-index: 1;
+}
+
+
+/*
+   Leaflet لازم يكون فوق الخلفية
+*/
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+
+  font-family:
+    Arial,
+    Tahoma,
+    sans-serif;
+
+  z-index: 1;
+}
+
+
+.leaflet-control {
+  z-index: 1000 !important;
+}
+
+
+.leaflet-popup-content {
+  direction: rtl;
+  text-align: right;
+}
+
+
+/* =====================================================
+   MAP BOTTOM
+   ===================================================== */
+
+.map-bottom {
+  background: white;
+
+  padding: 14px;
+
+  border-radius: 20px 20px 0 0;
+
+  position: relative;
+
+  z-index: 20;
+
+  margin-top: -10px;
+
+  box-shadow:
+    0 -5px 20px rgba(0, 0, 0, 0.08);
+}
+
+
+.map-bottom input {
+  margin-bottom: 8px;
+}
+
+
+/* =====================================================
+   SEARCH RESULTS
+   ===================================================== */
+
+#searchResults {
+  max-height: 180px;
+
+  overflow-y: auto;
 
   border-radius: 12px;
 
+  background: white;
+}
+
+
+.search-result {
+  width: 100%;
+
+  display: block;
+
+  text-align: right;
+
+  padding: 12px;
+
+  border: 0;
+
+  border-bottom: 1px solid #eeeeee;
+
+  background: white;
+
+  font-size: 13px;
+
   line-height: 1.5;
-
-  transition: 0.2s;
-}
-
-.nav button.active {
-  color: var(--blue);
-
-  background: #eef6ff;
-
-  font-weight: 900;
-}
-
-.nav button:active {
-  transform: scale(0.94);
 }
 
 
-/* ======================================================
-   EMPTY STATE
-   ====================================================== */
+.search-result:active {
+  background: #f0fdfa;
+}
+
+
+/* =====================================================
+   RIDES
+   ===================================================== */
+
+.ride-item {
+  margin-top: 12px;
+}
+
+
+.ride-item h3 {
+  margin-bottom: 10px;
+  color: #0f766e;
+}
+
+
+.ride-item p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+
+/* =====================================================
+   OFFERS
+   ===================================================== */
+
+.offer-item {
+  margin: 10px 0;
+  padding: 13px;
+
+  background: #f8fafc;
+
+  border-radius: 13px;
+
+  border: 1px solid #e5e7eb;
+}
+
+
+.offer-item p {
+  margin: 6px 0;
+}
+
+
+.accept-offer-btn {
+  width: 100%;
+
+  padding: 11px;
+
+  border: 0;
+
+  border-radius: 11px;
+
+  background: #16a34a;
+
+  color: white;
+
+  font-weight: bold;
+
+  margin-top: 8px;
+}
+
+
+/* =====================================================
+   EMPTY
+   ===================================================== */
 
 .empty-state {
+  margin: 20px 15px;
+
+  padding: 30px 15px;
+
+  background: white;
+
+  border-radius: 18px;
+
   text-align: center;
 
-  padding: 35px 15px;
-
-  color: var(--muted);
-
-  background: #f7fafc;
-
-  border-radius: 17px;
-
-  border: 1px dashed #d7e4eb;
+  color: #777;
 }
 
 
-/* ======================================================
-   GOOGLE MAP CONTROLS
-   ====================================================== */
+/* =====================================================
+   PROFILE
+   ===================================================== */
 
-.gm-style {
-  font-family:
-    Tahoma,
-    Arial,
-    sans-serif !important;
-}
-
-.gm-style button {
-  -webkit-tap-highlight-color:
-    transparent;
+.profile-card h3 {
+  margin-bottom: 12px;
+  color: #0f766e;
 }
 
 
-/* ======================================================
+.profile-card p {
+  margin: 10px 0;
+  line-height: 1.6;
+}
+
+
+/* =====================================================
+   AUTH
+   ===================================================== */
+
+.auth-card {
+  margin-top: 40px;
+}
+
+
+.auth-card h2 {
+  text-align: center;
+  color: #0f766e;
+  margin-bottom: 8px;
+}
+
+
+.auth-card > p {
+  text-align: center;
+  color: #777;
+  margin-bottom: 20px;
+}
+
+
+#recaptcha-container {
+  margin-top: 15px;
+  overflow: hidden;
+}
+
+
+/* =====================================================
    MOBILE
-   ====================================================== */
+   ===================================================== */
 
 @media (max-width: 480px) {
 
-  .app {
-    max-width: 100%;
-    box-shadow: none;
-  }
-
-  .screen {
-    padding-left: 13px;
-    padding-right: 13px;
-  }
-
-  .hero {
-    border-radius: 19px;
-
-    padding: 18px 15px;
-  }
-
-  .card {
-    border-radius: 17px;
-
-    padding: 14px;
-  }
-
-  .map {
-    height: 370px;
-
-    border-radius: 17px;
-  }
-
-  .logo {
-    font-size: 19px;
-  }
-
-}
-
-
-/* ======================================================
-   SMALL PHONES
-   ====================================================== */
-
-@media (max-width: 360px) {
-
-  .screen {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  .row {
-    grid-template-columns: 1fr;
-  }
-
-  .offer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .price {
+  .app-header h2 {
     font-size: 21px;
   }
 
-  .map {
-    height: 330px;
+  .ride-card,
+  .auth-card,
+  .profile-card,
+  .ride-item {
+    margin: 10px;
+  }
+
+  #map {
+    height: 55vh !important;
+    min-height: 350px;
   }
 
 }
 
 
-/* ======================================================
-   LANDSCAPE
-   ====================================================== */
+/* =====================================================
+   SMALL MOBILE
+   ===================================================== */
 
-@media (orientation: landscape) and (max-height: 600px) {
+@media (max-width: 360px) {
 
-  .map {
-    height: 280px;
+  #map {
+    height: 52vh !important;
+    min-height: 320px;
   }
 
-  .screen {
-    padding-bottom: 90px;
+  .bottom-nav {
+    height: 68px;
   }
 
-}
-
-
-/* ======================================================
-   SAFE AREA FOR ANDROID / IOS
-   ====================================================== */
-
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-
-  .nav {
-    padding-bottom:
-      calc(8px + env(safe-area-inset-bottom));
-  }
-
-  .screen {
-    padding-bottom:
-      calc(105px + env(safe-area-inset-bottom));
-  }
-
-}
-
-
-/* ======================================================
-   SCROLLBAR
-   ====================================================== */
-
-::-webkit-scrollbar {
-  width: 5px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f3f8fb;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c8d9e3;
-
-  border-radius: 99px;
-}
-
-
-/* ======================================================
-   SELECTION
-   ====================================================== */
-
-::selection {
-  background: #0878df22;
-
-  color: var(--text);
 }
