@@ -1,606 +1,585 @@
-/* =====================================================
-   وصلني المنوفية
-   GLOBAL STYLE
-   ===================================================== */
-
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
+:root {
+  font-family: Tahoma, Arial, sans-serif;
+  color: #12304a;
+  background: #f3f8fb;
+}
 
 html,
 body {
-  width: 100%;
+  margin: 0;
+  padding: 0;
   min-height: 100%;
+  background: #f3f8fb;
 }
-
 
 body {
   direction: rtl;
-  font-family:
-    Arial,
-    Tahoma,
-    sans-serif;
+}
 
-  background: #f5f7f8;
-  color: #1f2937;
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
 
-  overflow-x: hidden;
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 
 /* =====================================================
    APP
-   ===================================================== */
+===================================================== */
 
 #app {
   width: 100%;
+  max-width: 520px;
   min-height: 100vh;
-  max-width: 600px;
-  margin: 0 auto;
-  background: #f5f7f8;
-  position: relative;
-}
-
-
-/* =====================================================
-   SCREENS
-   ===================================================== */
-
-.screen {
-  display: none;
-  min-height: 100vh;
-  padding-bottom: 85px;
-}
-
-
-.screen.active {
-  display: block;
+  margin: auto;
+  background: #fff;
+  box-shadow: 0 0 30px #0001;
 }
 
 
 /* =====================================================
    HEADER
-   ===================================================== */
+===================================================== */
 
-.app-header {
-  padding: 22px 18px;
-  background: #0f766e;
-  color: white;
-  border-radius: 0 0 24px 24px;
-  text-align: center;
-}
+header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 
-
-.app-header h2 {
-  font-size: 24px;
-  margin-bottom: 6px;
-}
-
-
-.app-header p {
-  font-size: 14px;
-  opacity: 0.9;
-}
-
-
-/* =====================================================
-   CARDS
-   ===================================================== */
-
-.ride-card,
-.auth-card,
-.profile-card,
-.ride-item,
-.offer-item {
-  background: white;
-  margin: 15px;
-  padding: 18px;
-  border-radius: 18px;
-  box-shadow:
-    0 5px 20px rgba(0, 0, 0, 0.07);
-}
-
-
-/* =====================================================
-   LABELS
-   ===================================================== */
-
-label {
-  display: block;
-  margin: 14px 0 7px;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-
-/* =====================================================
-   INPUTS
-   ===================================================== */
-
-input,
-textarea,
-select {
-  width: 100%;
-  border: 1px solid #d9dee3;
   background: #fff;
-  border-radius: 13px;
-  padding: 13px;
-  font-size: 15px;
-  outline: none;
-  direction: rtl;
-}
 
-
-input:focus,
-textarea:focus,
-select:focus {
-  border-color: #0f766e;
-  box-shadow:
-    0 0 0 2px rgba(15, 118, 110, 0.12);
-}
-
-
-textarea {
-  min-height: 90px;
-  resize: vertical;
-}
-
-
-/* =====================================================
-   LOCATION
-   ===================================================== */
-
-.location-row {
-  display: flex;
-  gap: 8px;
-}
-
-
-.location-row input {
-  flex: 1;
-}
-
-
-.location-row button {
-  width: 52px;
-  border: 0;
-  border-radius: 13px;
-  background: #e6f7f5;
-  color: #0f766e;
-  font-size: 21px;
-}
-
-
-.location-select {
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #d9dee3;
-  border-radius: 13px;
-  background: white;
-  text-align: right;
-  font-size: 15px;
-  color: #555;
-}
-
-
-/* =====================================================
-   BUTTONS
-   ===================================================== */
-
-button {
-  cursor: pointer;
-  font-family: inherit;
-}
-
-
-.primary-btn {
-  width: 100%;
-  margin-top: 15px;
-  padding: 14px;
-  border: 0;
-  border-radius: 14px;
-  background: #0f766e;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-
-.primary-btn:active {
-  transform: scale(0.98);
-}
-
-
-.danger-btn {
-  width: calc(100% - 30px);
-  margin: 15px;
-  padding: 14px;
-  border: 0;
-  border-radius: 14px;
-  background: #dc2626;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-
-/* =====================================================
-   BOTTOM NAV
-   ===================================================== */
-
-.bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-
-  width: 100%;
-  max-width: 600px;
-
-  height: 72px;
-
-  background: white;
+  padding:
+    15px
+    18px;
 
   display: flex;
-  justify-content: space-around;
   align-items: center;
+  justify-content: space-between;
 
-  border-top: 1px solid #e5e7eb;
-
-  z-index: 5000;
-
-  box-shadow:
-    0 -5px 20px rgba(0, 0, 0, 0.06);
+  border-bottom:
+    1px solid #edf2f5;
 }
 
+.logo {
+  font-size: 22px;
+  font-weight: 900;
+  color: #0878df;
+}
 
-.bottom-nav button {
+.logo span {
+  color: #20a65a;
+}
+
+.header-user {
   border: 0;
-  background: transparent;
-  color: #6b7280;
+  background: #eef6ff;
 
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  width: 42px;
+  height: 42px;
 
-  gap: 4px;
+  border-radius: 50%;
 
   font-size: 20px;
 }
 
 
-.bottom-nav button span {
-  font-size: 11px;
+/* =====================================================
+   SCREENS
+===================================================== */
+
+.screen {
+  padding:
+    18px
+    18px
+    100px;
 }
 
-
-.bottom-nav button:active {
-  color: #0f766e;
+.hidden {
+  display: none !important;
 }
 
 
 /* =====================================================
-   MAP HEADER
-   ===================================================== */
+   HERO
+===================================================== */
 
-.map-header {
-  height: 60px;
+.hero {
+  background:
+    linear-gradient(
+      135deg,
+      #0878df,
+      #20a65a
+    );
 
-  background: #0f766e;
-  color: white;
+  color: #fff;
 
-  display: flex;
-  align-items: center;
+  border-radius: 22px;
 
-  padding: 0 14px;
+  padding: 20px;
 
-  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.hero h2 {
+  margin:
+    0 0 8px;
+}
+
+.hero p {
+  margin: 0;
+  opacity: .9;
+  line-height: 1.7;
 }
 
 
-.map-header h3 {
-  flex: 1;
-  text-align: center;
-  font-size: 18px;
-}
+/* =====================================================
+   CARD
+===================================================== */
 
+.card {
+  background: #fff;
 
-.map-header button {
-  width: 40px;
-  height: 40px;
+  border:
+    1px solid #e5edf2;
 
-  border: 0;
-  border-radius: 12px;
+  border-radius: 20px;
 
-  background: rgba(255, 255, 255, 0.18);
+  padding: 15px;
 
-  color: white;
+  margin-bottom: 14px;
 
-  font-size: 20px;
+  box-shadow:
+    0 7px 22px #0b75d40d;
 }
 
 
 /* =====================================================
    MAP
-   ===================================================== */
+===================================================== */
 
-#map {
-  width: 100% !important;
-
-  height: 58vh !important;
-
-  min-height: 380px;
-
-  background: #e5e7eb;
-
+.map-container {
   position: relative;
 
-  z-index: 1;
+  height: 330px;
+
+  border-radius: 18px;
+
+  overflow: hidden;
+
+  background: #eaf3f8;
+
+  margin-bottom: 14px;
 }
 
-
-/*
-   Leaflet لازم يكون فوق الخلفية
-*/
+#map {
+  width: 100%;
+  height: 100%;
+  min-height: 330px;
+}
 
 .leaflet-container {
   width: 100%;
   height: 100%;
 
   font-family:
-    Arial,
     Tahoma,
+    Arial,
     sans-serif;
 
   z-index: 1;
 }
 
+.map-location-btn {
+  position: absolute;
 
-.leaflet-control {
-  z-index: 1000 !important;
-}
+  right: 12px;
+  bottom: 12px;
 
-
-.leaflet-popup-content {
-  direction: rtl;
-  text-align: right;
-}
-
-
-/* =====================================================
-   MAP BOTTOM
-   ===================================================== */
-
-.map-bottom {
-  background: white;
-
-  padding: 14px;
-
-  border-radius: 20px 20px 0 0;
-
-  position: relative;
-
-  z-index: 20;
-
-  margin-top: -10px;
-
-  box-shadow:
-    0 -5px 20px rgba(0, 0, 0, 0.08);
-}
-
-
-.map-bottom input {
-  margin-bottom: 8px;
-}
-
-
-/* =====================================================
-   SEARCH RESULTS
-   ===================================================== */
-
-#searchResults {
-  max-height: 180px;
-
-  overflow-y: auto;
-
-  border-radius: 12px;
-
-  background: white;
-}
-
-
-.search-result {
-  width: 100%;
-
-  display: block;
-
-  text-align: right;
-
-  padding: 12px;
+  z-index: 500;
 
   border: 0;
 
-  border-bottom: 1px solid #eeeeee;
+  background: #fff;
 
-  background: white;
+  color: #0878df;
 
-  font-size: 13px;
+  padding:
+    11px
+    14px;
 
-  line-height: 1.5;
-}
+  border-radius: 14px;
 
+  font-weight: 800;
 
-.search-result:active {
-  background: #f0fdfa;
-}
-
-
-/* =====================================================
-   RIDES
-   ===================================================== */
-
-.ride-item {
-  margin-top: 12px;
-}
-
-
-.ride-item h3 {
-  margin-bottom: 10px;
-  color: #0f766e;
-}
-
-
-.ride-item p {
-  margin: 8px 0;
-  line-height: 1.6;
+  box-shadow:
+    0 3px 15px #0002;
 }
 
 
 /* =====================================================
-   OFFERS
-   ===================================================== */
+   FORMS
+===================================================== */
 
-.offer-item {
-  margin: 10px 0;
-  padding: 13px;
+label {
+  display: block;
 
-  background: #f8fafc;
+  font-weight: 800;
+
+  font-size: 14px;
+
+  margin-top: 10px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+
+  padding:
+    13px
+    14px;
+
+  border:
+    1px solid #d7e4eb;
 
   border-radius: 13px;
 
-  border: 1px solid #e5e7eb;
+  margin:
+    7px
+    0
+    10px;
+
+  background: #fff;
+
+  outline: none;
+
+  color: #12304a;
 }
 
-
-.offer-item p {
-  margin: 6px 0;
+textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #0878df;
 
-.accept-offer-btn {
-  width: 100%;
-
-  padding: 11px;
-
-  border: 0;
-
-  border-radius: 11px;
-
-  background: #16a34a;
-
-  color: white;
-
-  font-weight: bold;
-
-  margin-top: 8px;
+  box-shadow:
+    0 0 0 3px #0878df16;
 }
 
 
 /* =====================================================
-   EMPTY
-   ===================================================== */
+   BUTTONS
+===================================================== */
 
-.empty-state {
-  margin: 20px 15px;
+.btn {
+  width: 100%;
 
-  padding: 30px 15px;
+  border: 0;
 
-  background: white;
+  border-radius: 14px;
 
-  border-radius: 18px;
+  padding:
+    13px
+    14px;
 
+  font-weight: 800;
+
+  margin-top: 7px;
+}
+
+.primary {
+  background: #0878df;
+  color: #fff;
+}
+
+.green {
+  background: #20a65a;
+  color: #fff;
+}
+
+.outline {
+  background: #fff;
+  color: #0878df;
+
+  border:
+    2px solid #0878df;
+}
+
+.danger {
+  background: #fff0f0;
+
+  color: #c73535;
+
+  border:
+    1px solid #ffcaca;
+}
+
+
+/* =====================================================
+   ROW
+===================================================== */
+
+.row {
+  display: grid;
+
+  grid-template-columns:
+    1fr
+    1fr;
+
+  gap: 9px;
+}
+
+
+/* =====================================================
+   TEXT
+===================================================== */
+
+.muted {
+  color: #718496;
+
+  font-size: 14px;
+
+  line-height: 1.6;
+}
+
+.notice {
+  padding: 12px;
+
+  border-radius: 12px;
+
+  margin-top: 12px;
+
+  background: #e9f8ef;
+
+  color: #15743e;
+
+  font-size: 14px;
+}
+
+.notice.error {
+  background: #fff0f0;
+  color: #a62626;
+}
+
+.error {
+  background: #fff0f0;
+  color: #a62626;
+}
+
+.price {
+  font-size: 23px;
+
+  font-weight: 900;
+
+  color: #0878df;
+}
+
+.pill {
+  display: inline-block;
+
+  padding:
+    5px
+    9px;
+
+  border-radius: 99px;
+
+  background: #eef6ff;
+
+  color: #0878df;
+
+  font-size: 12px;
+
+  font-weight: 800;
+}
+
+.route-arrow {
   text-align: center;
 
-  color: #777;
+  color: #20a65a;
+
+  font-size: 20px;
+
+  margin:
+    3px
+    0;
+}
+
+
+/* =====================================================
+   OFFER
+===================================================== */
+
+.offer {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 10px;
+
+  align-items: center;
 }
 
 
 /* =====================================================
    PROFILE
-   ===================================================== */
+===================================================== */
 
-.profile-card h3 {
-  margin-bottom: 12px;
-  color: #0f766e;
+.profile-card {
+  text-align: center;
 }
 
+.avatar {
+  width: 64px;
+  height: 64px;
 
-.profile-card p {
-  margin: 10px 0;
-  line-height: 1.6;
+  border-radius: 50%;
+
+  background: #dfeefa;
+
+  display: grid;
+
+  place-items: center;
+
+  font-size: 28px;
+
+  margin:
+    0
+    auto
+    10px;
 }
 
 
 /* =====================================================
-   AUTH
-   ===================================================== */
+   CAPTAIN
+===================================================== */
 
-.auth-card {
-  margin-top: 40px;
+.switch {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+}
+
+.switch input {
+  width: 22px;
+  height: 22px;
+  margin: 0;
 }
 
 
-.auth-card h2 {
-  text-align: center;
-  color: #0f766e;
-  margin-bottom: 8px;
+/* =====================================================
+   NAV
+===================================================== */
+
+.nav {
+  position: fixed;
+
+  bottom: 0;
+
+  left: 50%;
+
+  transform:
+    translateX(-50%);
+
+  width:
+    min(
+      520px,
+      100%
+    );
+
+  background: #fff;
+
+  border-top:
+    1px solid #e7eef3;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  padding:
+    9px
+    7px;
+
+  z-index: 2000;
+
+  box-shadow:
+    0 -3px 15px #0000000a;
 }
 
+.nav button {
+  border: 0;
 
-.auth-card > p {
-  text-align: center;
-  color: #777;
-  margin-bottom: 20px;
+  background: none;
+
+  color: #718496;
+
+  font-size: 12px;
+
+  padding: 5px;
 }
 
+.nav .active {
+  color: #0878df;
 
-#recaptcha-container {
-  margin-top: 15px;
-  overflow: hidden;
+  font-weight: 900;
 }
 
 
 /* =====================================================
    MOBILE
-   ===================================================== */
+===================================================== */
 
-@media (max-width: 480px) {
+@media (
+  max-width: 500px
+) {
 
-  .app-header h2 {
-    font-size: 21px;
+  #app {
+    box-shadow: none;
   }
 
-  .ride-card,
-  .auth-card,
-  .profile-card,
-  .ride-item {
-    margin: 10px;
+  .screen {
+    padding:
+      14px
+      14px
+      100px;
+  }
+
+  .map-container {
+    height: 300px;
   }
 
   #map {
-    height: 55vh !important;
-    min-height: 350px;
+    min-height: 300px;
   }
 
 }
 
+@media (
+  max-width: 360px
+) {
 
-/* =====================================================
-   SMALL MOBILE
-   ===================================================== */
-
-@media (max-width: 360px) {
-
-  #map {
-    height: 52vh !important;
-    min-height: 320px;
-  }
-
-  .bottom-nav {
-    height: 68px;
+  .row {
+    grid-template-columns: 1fr;
   }
 
 }
