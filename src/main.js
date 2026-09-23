@@ -40,24 +40,75 @@ import {
 } from "@capacitor/geolocation";
 
 /* ======================================================
+/* ======================================================
    FIREBASE
    ====================================================== */
 
+import { initializeApp } from "firebase/app";
+
+import {
+  getAuth,
+  onAuthStateChanged,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  signOut
+} from "firebase/auth";
+
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  query,
+  where,
+  limit,
+  onSnapshot,
+  getDocs,
+  serverTimestamp
+} from "firebase/firestore";
+
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL
+} from "firebase/storage";
+
+
+/* ======================================================
+   FIREBASE CONFIG
+   ====================================================== */
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyAZVXuhTTiGKfDflIZUm_8IgzhRjjWsfIc",
+  authDomain: "wasselni-monufia-13f28.firebaseapp.com",
+  projectId: "wasselni-monufia-13f28",
+  storageBucket: "wasselni-monufia-13f28.firebasestorage.app",
+  messagingSenderId: "1007737426615",
+  appId: "1:1007737426615:web:3a9d2638b8cb9616cef332",
+  measurementId: "G-7K0MVY6F73"
 };
+
+
+/* ======================================================
+   INITIALIZE FIREBASE
+   ====================================================== */
 
 const firebaseApp = initializeApp(firebaseConfig);
 
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
-const storage = getStorage(firebaseApp);
 
+/* ======================================================
+   FIREBASE SERVICES
+   ====================================================== */
+
+const auth = getAuth(firebaseApp);
+
+const db = getFirestore(firebaseApp);
+
+const storage = getStorage(firebaseApp);
 /* ======================================================
    GLOBAL VARIABLES
    ====================================================== */
