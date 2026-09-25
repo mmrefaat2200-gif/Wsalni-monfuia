@@ -24,8 +24,6 @@ import {
   query,
   where,
   getDocs,
-  onSnapshot,
-  orderBy,
   serverTimestamp,
   limit
 } from "firebase/firestore";
@@ -50,14 +48,18 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-setPersistence(auth, browserLocalPersistence).catch(console.error);
+setPersistence(auth, browserLocalPersistence)
+  .catch(console.error);
 
 /* ======================================================
    CONSTANTS
 ====================================================== */
 
-const NOMINATIM_URL = "https://nominatim.openstreetmap.org";
-const OSRM_URL = "https://router.project-osrm.org";
+const NOMINATIM_URL =
+  "https://nominatim.openstreetmap.org";
+
+const OSRM_URL =
+  "https://router.project-osrm.org";
 
 let currentUser = null;
 let currentProfile = null;
@@ -73,11 +75,20 @@ let destinationLocation = null;
 
 let destinationSearchTimer = null;
 
+/*
+  الدور الحالي داخل التطبيق.
+
+  customer = عميل
+  captain  = كابتن
+*/
+let currentMode = "customer";
+
 /* ======================================================
    HELPERS
 ====================================================== */
 
-const $ = (id) => document.getElementById(id);
+const $ = (id) =>
+  document.getElementById(id);
 
 function appRoot() {
   return $("app");
@@ -93,17 +104,25 @@ function escapeHtml(value = "") {
 }
 
 function normalizeEgyptPhone(phone) {
-  let value = String(phone || "").trim().replace(/\s+/g, "");
+  let value = String(phone || "")
+    .trim()
+    .replace(/\s+/g, "");
 
   if (value.startsWith("+20")) {
     return value;
   }
 
-  if (value.startsWith("20") && value.length === 12) {
+  if (
+    value.startsWith("20") &&
+    value.length === 12
+  ) {
     return "+" + value;
   }
 
-  if (value.startsWith("01") && value.length === 11) {
+  if (
+    value.startsWith("01") &&
+    value.length === 11
+  ) {
     return "+20" + value.substring(1);
   }
 
@@ -111,23 +130,32 @@ function normalizeEgyptPhone(phone) {
 }
 
 /*
-  Firebase Email/Password is used internally so that
-  the user can login using phone + password.
+  Firebase Email/Password داخلي فقط.
+  المستخدم يدخل برقم الموبايل.
 */
 function phoneLoginEmail(phone) {
-  const normalized = normalizeEgyptPhone(phone);
-  const digits = normalized.replace(/\D/g, "");
+  const normalized =
+    normalizeEgyptPhone(phone);
+
+  const digits =
+    normalized.replace(/\D/g, "");
 
   return `${digits}@phone.wasselni.app`;
 }
 
 function generateAccountNumber() {
-  const random = Math.floor(100000 + Math.random() * 900000);
+  const random =
+    Math.floor(
+      100000 +
+      Math.random() * 900000
+    );
+
   return `WM${random}`;
 }
 
 function money(value) {
-  const number = Number(value || 0);
+  const number =
+    Number(value || 0);
 
   if (!Number.isFinite(number)) {
     return "0";
@@ -136,101 +164,396 @@ function money(value) {
   return number.toLocaleString("ar-EG");
 }
 
-function showMessage(message, type = "info") {
-  const old = document.querySelector(".toast-message");
+function timestampValue(timestamp) {
+  if (!timestamp) return 0;
+
+  if (
+    typeof timestamp.toMillis ===
+    "function"
+  ) {
+    return timestamp.toMillis();
+  }
+
+  if (
+    timestamp.seconds !== undefined
+  ) {
+    return timestamp.seconds * 1000;
+  }
+
+  return 0;
+}
+
+/* ======================================================
+   TOAST MESSAGES
+====================================================== */
+
+function showMessage(
+  message,
+  type = "info",
+  duration = 4000
+) {
+  const old =
+    document.querySelector(
+      ".toast-message"
+    );
 
   if (old) {
     old.remove();
   }
 
-  const div = document.createElement("div");
+  const icons = {
+    success: "✓",
+    error: "!",
+    info: "i",
+    warning: "⚠"
+  };
 
-  div.className = `toast-message ${type}`;
-  div.textContent = message;
+  const titles = {
+    success: "تم بنجاح",
+    error: "حصلت مشكلة",
+    info: "تنبيه",
+    warning: "خد بالك"
+  };
 
-  document.body.appendChild(div);
+  const toast =
+    document.createElement("div");
 
-  setTimeout(() => {
-    div.remove();
-  }, 3500);
+  toast.className =
+    `toast-message ${type}`;
+
+  toast.innerHTML = `
+    <div class="toast-icon">
+      ${icons[type] || "i"}
+    </div>
+
+    <div class="toast-content">
+      <strong>
+        ${titles[type] || "تنبيه"}
+      </strong>
+
+      <span>
+        ${escapeHtml(message)}
+      </span>
+    </div>
+
+    <button
+      class="toast-close"
+      type="button"
+    >
+      ×
+    </button>
+  `;
+
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add("show");
+  });
+
+  const closeToast = () => {
+    toast.classList.remove("show");
+
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.remove();
+      }
+    }, 250);
+  };
+
+  toast
+    .querySelector(".toast-close")
+    .addEventListener(
+      "click",
+      closeToast
+    );
+
+  setTimeout(
+    closeToast,
+    duration
+  );
 }
 
-function setLoading(button, loading, text = "جاري التنفيذ...") {
+function setLoading(
+  button,
+  loading,
+  text = "جاري التنفيذ..."
+) {
   if (!button) return;
 
   if (loading) {
-    button.dataset.oldText = button.textContent;
+    button.dataset.oldText =
+      button.textContent;
+
     button.disabled = true;
+
     button.textContent = text;
   } else {
     button.disabled = false;
-    button.textContent = button.dataset.oldText || button.textContent;
+
+    button.textContent =
+      button.dataset.oldText ||
+      button.textContent;
   }
 }
 
 /* ======================================================
-   AUTH
+   ACCOUNT ROLES
 ====================================================== */
 
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
+function getRoles() {
+  if (!currentProfile) {
+    return [];
+  }
 
-  if (!user) {
-    currentProfile = null;
-    showLogin();
+  if (
+    Array.isArray(
+      currentProfile.roles
+    )
+  ) {
+    return currentProfile.roles;
+  }
+
+  /*
+    توافق مع الحسابات القديمة.
+  */
+
+  if (currentProfile.type === "captain") {
+    return [
+      "customer",
+      "captain"
+    ];
+  }
+
+  return ["customer"];
+}
+
+function hasRole(role) {
+  return getRoles().includes(role);
+}
+
+function ensureValidMode() {
+  const roles = getRoles();
+
+  if (
+    roles.includes(currentMode)
+  ) {
     return;
   }
 
-  try {
-    const profileRef = doc(db, "users", user.uid);
-    const profileSnap = await getDoc(profileRef);
+  currentMode =
+    roles.includes("customer")
+      ? "customer"
+      : "captain";
+}
 
-    if (profileSnap.exists()) {
+function roleName(role) {
+  return role === "captain"
+    ? "كابتن"
+    : "عميل";
+}
+
+/* ======================================================
+   AUTH STATE
+====================================================== */
+
+onAuthStateChanged(
+  auth,
+  async (user) => {
+
+    currentUser = user;
+
+    if (!user) {
+      currentProfile = null;
+      currentMode = "customer";
+
+      showLogin();
+
+      return;
+    }
+
+    try {
+
+      console.log(
+        "Firebase user:",
+        user.uid
+      );
+
+      const profileRef =
+        doc(
+          db,
+          "users",
+          user.uid
+        );
+
+      const profileSnap =
+        await getDoc(
+          profileRef
+        );
+
+      if (!profileSnap.exists()) {
+
+        console.error(
+          "Profile not found"
+        );
+
+        await signOut(auth);
+
+        showLogin();
+
+        setTimeout(() => {
+          showMessage(
+            "الحساب موجود لكن بياناتك الشخصية غير موجودة. اعمل حساب جديد من فضلك.",
+            "warning",
+            6000
+          );
+        }, 300);
+
+        return;
+      }
+
       currentProfile = {
         id: user.uid,
         ...profileSnap.data()
       };
 
+      /*
+        تحويل الحسابات القديمة
+        إلى نظام roles الجديد.
+      */
+
+      if (
+        !Array.isArray(
+          currentProfile.roles
+        )
+      ) {
+
+        if (
+          currentProfile.type ===
+          "captain"
+        ) {
+          currentProfile.roles = [
+            "customer",
+            "captain"
+          ];
+        } else {
+          currentProfile.roles = [
+            "customer"
+          ];
+        }
+      }
+
+      ensureValidMode();
+
+      console.log(
+        "Profile loaded:",
+        currentProfile
+      );
+
       showHome();
-    } else {
-      await signOut(auth);
+
+      setTimeout(() => {
+        showMessage(
+          `أهلاً ${currentProfile.name || ""} 👋`,
+          "success",
+          2500
+        );
+      }, 350);
+
+    } catch (error) {
+
+      console.error(
+        "AUTH PROFILE ERROR:",
+        error
+      );
+
+      currentProfile = null;
+
+      try {
+        await signOut(auth);
+      } catch (logoutError) {
+        console.error(
+          logoutError
+        );
+      }
+
       showLogin();
+
+      setTimeout(() => {
+
+        let message =
+          "تعذر تحميل بيانات الحساب.";
+
+        if (
+          error.code ===
+          "permission-denied"
+        ) {
+          message =
+            "تم تسجيل الدخول لكن Firebase منع قراءة بيانات الحساب.";
+        }
+
+        if (
+          error.code ===
+          "unavailable"
+        ) {
+          message =
+            "الاتصال بقاعدة البيانات غير متاح حالياً.";
+        }
+
+        showMessage(
+          message,
+          "error",
+          6000
+        );
+
+      }, 300);
     }
-  } catch (error) {
-    console.error(error);
-    showMessage("حصل خطأ في تحميل الحساب", "error");
   }
-});
+);
 
 /* ======================================================
    LOGIN
 ====================================================== */
 
 function showLogin() {
+
   appRoot().innerHTML = `
     <div class="auth-page">
 
       <div class="auth-card">
 
         <div class="logo-box">
-          <div class="logo-icon">🚕</div>
-          <h1>وصلني المنوفية</h1>
-          <p>اطلب رحلتك بسهولة وأمان</p>
+
+          <div class="logo-icon">
+            🚕
+          </div>
+
+          <h1>
+            وصلني المنوفية
+          </h1>
+
+          <p>
+            اطلب رحلتك بسهولة وأمان
+          </p>
+
         </div>
 
         <form id="loginForm">
 
-          <label>رقم الموبايل</label>
+          <label>
+            رقم الموبايل
+          </label>
 
           <input
             id="loginPhone"
             type="tel"
             inputmode="tel"
-            placeholder="مثال: 01012345678"
+            placeholder="01012345678"
             required
           />
 
-          <label>كلمة المرور</label>
+          <label>
+            كلمة المرور
+          </label>
 
           <input
             id="loginPassword"
@@ -265,33 +588,81 @@ function showLogin() {
     </div>
   `;
 
-  $("loginForm").addEventListener("submit", loginUser);
+  $("loginForm")
+    .addEventListener(
+      "submit",
+      loginUser
+    );
 
-  $("createAccountBtn").addEventListener(
-    "click",
-    showRegister
-  );
+  $("createAccountBtn")
+    .addEventListener(
+      "click",
+      showRegister
+    );
 }
 
 async function loginUser(event) {
+
   event.preventDefault();
 
-  const phone = $("loginPhone").value.trim();
-  const password = $("loginPassword").value;
+  const phone =
+    $("loginPhone")
+      .value
+      .trim();
+
+  const password =
+    $("loginPassword")
+      .value;
 
   if (!phone || !password) {
-    showMessage("اكتب رقم الموبايل وكلمة المرور", "error");
+
+    showMessage(
+      "اكتب رقم الموبايل وكلمة المرور",
+      "warning"
+    );
+
     return;
   }
 
-  const normalizedPhone = normalizeEgyptPhone(phone);
+  const normalizedPhone =
+    normalizeEgyptPhone(
+      phone
+    );
 
-  const button = $("loginBtn");
+  if (
+    !normalizedPhone.startsWith("+20") ||
+    normalizedPhone.length !== 13
+  ) {
+
+    showMessage(
+      "اكتب رقم موبايل مصري صحيح مثل 01012345678",
+      "warning"
+    );
+
+    return;
+  }
+
+  const button =
+    $("loginBtn");
 
   try {
-    setLoading(button, true, "جاري تسجيل الدخول...");
 
-    const email = phoneLoginEmail(normalizedPhone);
+    setLoading(
+      button,
+      true,
+      "جاري التحقق..."
+    );
+
+    showMessage(
+      "جاري التحقق من بياناتك...",
+      "info",
+      2500
+    );
+
+    const email =
+      phoneLoginEmail(
+        normalizedPhone
+      );
 
     await signInWithEmailAndPassword(
       auth,
@@ -299,28 +670,78 @@ async function loginUser(event) {
       password
     );
 
-    showMessage("تم تسجيل الدخول بنجاح", "success");
+    /*
+      لا نعرض نجاح هنا.
+      onAuthStateChanged هو المسؤول
+      عن التأكد أن بيانات الحساب اتحملت.
+    */
 
   } catch (error) {
-    console.error(error);
 
-    if (
-      error.code === "auth/invalid-credential" ||
-      error.code === "auth/wrong-password" ||
-      error.code === "auth/user-not-found"
-    ) {
-      showMessage(
-        "رقم الموبايل أو كلمة المرور غير صحيحة",
-        "error"
-      );
-    } else {
-      showMessage(
-        error.message || "تعذر تسجيل الدخول",
-        "error"
-      );
+    console.error(
+      "LOGIN ERROR:",
+      error
+    );
+
+    let message =
+      "تعذر تسجيل الدخول.";
+
+    switch (error.code) {
+
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+
+        message =
+          "رقم الموبايل أو كلمة المرور غير صحيحة.";
+
+        break;
+
+      case "auth/invalid-email":
+
+        message =
+          "رقم الموبايل غير صحيح.";
+
+        break;
+
+      case "auth/too-many-requests":
+
+        message =
+          "محاولات كثيرة. استنى شوية وحاول تاني.";
+
+        break;
+
+      case "auth/network-request-failed":
+
+        message =
+          "مفيش اتصال بالإنترنت.";
+
+        break;
+
+      case "auth/user-disabled":
+
+        message =
+          "الحساب ده متوقف حالياً.";
+
+        break;
+
+      default:
+
+        message =
+          error.message ||
+          "حصل خطأ أثناء تسجيل الدخول.";
     }
 
-    setLoading(button, false);
+    showMessage(
+      message,
+      "error",
+      5500
+    );
+
+    setLoading(
+      button,
+      false
+    );
   }
 }
 
@@ -329,6 +750,7 @@ async function loginUser(event) {
 ====================================================== */
 
 function showRegister() {
+
   appRoot().innerHTML = `
     <div class="auth-page">
 
@@ -342,9 +764,19 @@ function showRegister() {
         </button>
 
         <div class="logo-box">
-          <div class="logo-icon">🚕</div>
-          <h1>إنشاء حساب</h1>
-          <p>سجل حسابك في وصلني المنوفية</p>
+
+          <div class="logo-icon">
+            🚕
+          </div>
+
+          <h1>
+            إنشاء حساب
+          </h1>
+
+          <p>
+            حساب واحد للعميل والكابتن
+          </p>
+
         </div>
 
         <div class="account-type">
@@ -352,7 +784,6 @@ function showRegister() {
           <button
             id="customerTypeBtn"
             class="type-btn active"
-            data-type="customer"
           >
             👤
             <span>عميل</span>
@@ -361,7 +792,6 @@ function showRegister() {
           <button
             id="captainTypeBtn"
             class="type-btn"
-            data-type="captain"
           >
             🚕
             <span>كابتن</span>
@@ -369,9 +799,16 @@ function showRegister() {
 
         </div>
 
+        <div class="mode-help">
+          تقدر تبدأ كعميل، وبعد إنشاء الحساب
+          تقدر تفعل وضع الكابتن من «بياناتك الشخصية».
+        </div>
+
         <form id="registerForm">
 
-          <label>الاسم</label>
+          <label>
+            الاسم
+          </label>
 
           <input
             id="registerName"
@@ -380,7 +817,9 @@ function showRegister() {
             required
           />
 
-          <label>رقم الموبايل</label>
+          <label>
+            رقم الموبايل
+          </label>
 
           <input
             id="registerPhone"
@@ -390,9 +829,14 @@ function showRegister() {
             required
           />
 
-          <div id="captainFields" style="display:none;">
+          <div
+            id="captainFields"
+            style="display:none;"
+          >
 
-            <label>السن</label>
+            <label>
+              السن
+            </label>
 
             <input
               id="registerAge"
@@ -402,20 +846,41 @@ function showRegister() {
               placeholder="مثال: 30"
             />
 
-            <label>نوع العربية</label>
+            <label>
+              نوع العربية
+            </label>
 
             <select id="carType">
 
-              <option value="">اختر نوع العربية</option>
-              <option value="ملاكي">ملاكي</option>
-              <option value="ميكروباص">ميكروباص</option>
-              <option value="نقل">نقل</option>
-              <option value="نصف نقل">نصف نقل</option>
-              <option value="دبابة">دبابة</option>
+              <option value="">
+                اختر نوع العربية
+              </option>
+
+              <option value="ملاكي">
+                ملاكي
+              </option>
+
+              <option value="ميكروباص">
+                ميكروباص
+              </option>
+
+              <option value="نقل">
+                نقل
+              </option>
+
+              <option value="نصف نقل">
+                نصف نقل
+              </option>
+
+              <option value="دبابة">
+                دبابة
+              </option>
 
             </select>
 
-            <label>موديل العربية</label>
+            <label>
+              موديل العربية
+            </label>
 
             <input
               id="carModel"
@@ -423,7 +888,9 @@ function showRegister() {
               placeholder="مثال: تويوتا 2020"
             />
 
-            <label>رقم اللوحة</label>
+            <label>
+              رقم اللوحة
+            </label>
 
             <input
               id="plateNumber"
@@ -433,7 +900,9 @@ function showRegister() {
 
           </div>
 
-          <label>كلمة المرور</label>
+          <label>
+            كلمة المرور
+          </label>
 
           <input
             id="registerPassword"
@@ -443,7 +912,9 @@ function showRegister() {
             required
           />
 
-          <label>تأكيد كلمة المرور</label>
+          <label>
+            تأكيد كلمة المرور
+          </label>
 
           <input
             id="registerPasswordConfirm"
@@ -468,139 +939,240 @@ function showRegister() {
     </div>
   `;
 
-  let selectedType = "customer";
+  let selectedType =
+    "customer";
 
-  $("backLoginBtn").addEventListener(
-    "click",
-    showLogin
-  );
+  $("backLoginBtn")
+    .addEventListener(
+      "click",
+      showLogin
+    );
 
-  $("customerTypeBtn").addEventListener(
-    "click",
-    () => {
-      selectedType = "customer";
+  $("customerTypeBtn")
+    .addEventListener(
+      "click",
+      () => {
 
-      $("customerTypeBtn").classList.add("active");
-      $("captainTypeBtn").classList.remove("active");
+        selectedType =
+          "customer";
 
-      $("captainFields").style.display = "none";
-    }
-  );
+        $("customerTypeBtn")
+          .classList
+          .add("active");
 
-  $("captainTypeBtn").addEventListener(
-    "click",
-    () => {
-      selectedType = "captain";
+        $("captainTypeBtn")
+          .classList
+          .remove("active");
 
-      $("captainTypeBtn").classList.add("active");
-      $("customerTypeBtn").classList.remove("active");
+        $("captainFields")
+          .style
+          .display = "none";
+      }
+    );
 
-      $("captainFields").style.display = "block";
-    }
-  );
+  $("captainTypeBtn")
+    .addEventListener(
+      "click",
+      () => {
 
-  $("registerForm").addEventListener(
-    "submit",
-    (event) =>
-      registerUser(event, selectedType)
-  );
+        selectedType =
+          "captain";
+
+        $("captainTypeBtn")
+          .classList
+          .add("active");
+
+        $("customerTypeBtn")
+          .classList
+          .remove("active");
+
+        $("captainFields")
+          .style
+          .display = "block";
+      }
+    );
+
+  $("registerForm")
+    .addEventListener(
+      "submit",
+      (event) =>
+        registerUser(
+          event,
+          selectedType
+        )
+    );
 }
 
-async function registerUser(event, type) {
+async function registerUser(
+  event,
+  type
+) {
+
   event.preventDefault();
 
-  const name = $("registerName").value.trim();
-  const phone = normalizeEgyptPhone(
-    $("registerPhone").value.trim()
-  );
+  const name =
+    $("registerName")
+      .value
+      .trim();
 
-  const password = $("registerPassword").value;
+  const phone =
+    normalizeEgyptPhone(
+      $("registerPhone")
+        .value
+        .trim()
+    );
+
+  const password =
+    $("registerPassword")
+      .value;
+
   const confirmPassword =
-    $("registerPasswordConfirm").value;
+    $("registerPasswordConfirm")
+      .value;
 
-  if (!name || !phone || !password) {
+  if (
+    !name ||
+    !phone ||
+    !password
+  ) {
+
     showMessage(
       "من فضلك املأ البيانات المطلوبة",
-      "error"
+      "warning"
     );
 
     return;
   }
 
-  if (password.length < 6) {
+  if (
+    !phone.startsWith("+20") ||
+    phone.length !== 13
+  ) {
+
+    showMessage(
+      "اكتب رقم موبايل مصري صحيح",
+      "warning"
+    );
+
+    return;
+  }
+
+  if (
+    password.length < 6
+  ) {
+
     showMessage(
       "كلمة المرور لازم تكون 6 أحرف أو أرقام على الأقل",
-      "error"
+      "warning"
     );
 
     return;
   }
 
-  if (password !== confirmPassword) {
+  if (
+    password !==
+    confirmPassword
+  ) {
+
     showMessage(
       "كلمتا المرور غير متطابقتين",
-      "error"
+      "warning"
     );
 
     return;
   }
 
-  if (type === "captain") {
-    const age = Number($("registerAge").value);
+  let captainData = null;
 
-    if (!age || age < 18) {
+  if (type === "captain") {
+
+    const age =
+      Number(
+        $("registerAge")
+          .value
+      );
+
+    const carType =
+      $("carType").value;
+
+    const carModel =
+      $("carModel")
+        .value
+        .trim();
+
+    const plateNumber =
+      $("plateNumber")
+        .value
+        .trim();
+
+    if (
+      !age ||
+      age < 18
+    ) {
+
       showMessage(
         "الكابتن لازم يكون عمره 18 سنة أو أكثر",
-        "error"
+        "warning"
       );
 
       return;
     }
 
-    if (!$("carType").value) {
+    if (!carType) {
+
       showMessage(
         "اختار نوع العربية",
-        "error"
+        "warning"
       );
 
       return;
     }
 
-    if (!$("carModel").value.trim()) {
+    if (!carModel) {
+
       showMessage(
         "اكتب موديل العربية",
-        "error"
+        "warning"
       );
 
       return;
     }
 
-    if (!$("plateNumber").value.trim()) {
+    if (!plateNumber) {
+
       showMessage(
         "اكتب رقم اللوحة",
-        "error"
+        "warning"
       );
 
       return;
     }
+
+    captainData = {
+      age,
+      carType,
+      carModel,
+      plateNumber,
+      rating: 5,
+      totalRides: 0
+    };
   }
 
-  const button = $("registerBtn");
+  const button =
+    $("registerBtn");
 
   try {
+
     setLoading(
       button,
       true,
       "جاري إنشاء الحساب..."
     );
 
-    const email = phoneLoginEmail(phone);
-
-    /*
-      Create Firebase Email/Password account.
-      The email is internal and the user sees only
-      the phone number.
-    */
+    const email =
+      phoneLoginEmail(
+        phone
+      );
 
     const credential =
       await createUserWithEmailAndPassword(
@@ -609,39 +1181,52 @@ async function registerUser(event, type) {
         password
       );
 
-    const uid = credential.user.uid;
+    const uid =
+      credential.user.uid;
 
     const accountNumber =
       generateAccountNumber();
 
     const userData = {
+
       uid,
+
       name,
+
       phone,
-      type,
+
       accountNumber,
-      createdAt: serverTimestamp()
+
+      roles:
+        type === "captain"
+          ? [
+              "customer",
+              "captain"
+            ]
+          : [
+              "customer"
+            ],
+
+      activeRole: type,
+
+      createdAt:
+        serverTimestamp()
     };
 
-    if (type === "captain") {
-      userData.age =
-        Number($("registerAge").value);
+    if (captainData) {
 
-      userData.carType =
-        $("carType").value;
-
-      userData.carModel =
-        $("carModel").value.trim();
-
-      userData.plateNumber =
-        $("plateNumber").value.trim();
-
-      userData.rating = 5;
-      userData.totalRides = 0;
+      Object.assign(
+        userData,
+        captainData
+      );
     }
 
     await setDoc(
-      doc(db, "users", uid),
+      doc(
+        db,
+        "users",
+        uid
+      ),
       userData
     );
 
@@ -650,34 +1235,57 @@ async function registerUser(event, type) {
       ...userData
     };
 
+    currentMode = type;
+
     showMessage(
-      `تم إنشاء الحساب بنجاح. رقم حسابك: ${accountNumber}`,
-      "success"
+      `تم إنشاء الحساب بنجاح 🎉 رقم حسابك ${accountNumber}`,
+      "success",
+      5000
     );
 
     showHome();
 
   } catch (error) {
-    console.error(error);
 
-    if (error.code === "auth/email-already-in-use") {
+    console.error(
+      "REGISTER ERROR:",
+      error
+    );
+
+    if (
+      error.code ===
+      "auth/email-already-in-use"
+    ) {
+
       showMessage(
         "رقم الموبايل ده مسجل بالفعل. سجل دخول بدل إنشاء حساب جديد.",
-        "error"
+        "error",
+        5000
       );
-    } else if (error.code === "auth/weak-password") {
+
+    } else if (
+      error.code ===
+      "auth/weak-password"
+    ) {
+
       showMessage(
         "كلمة المرور ضعيفة",
         "error"
       );
+
     } else {
+
       showMessage(
-        error.message || "تعذر إنشاء الحساب",
+        error.message ||
+        "تعذر إنشاء الحساب",
         "error"
       );
     }
 
-    setLoading(button, false);
+    setLoading(
+      button,
+      false
+    );
   }
 }
 
@@ -686,13 +1294,19 @@ async function registerUser(event, type) {
 ====================================================== */
 
 function showHome() {
-  if (!currentUser || !currentProfile) {
+
+  if (
+    !currentUser ||
+    !currentProfile
+  ) {
     showLogin();
     return;
   }
 
+  ensureValidMode();
+
   const isCaptain =
-    currentProfile.type === "captain";
+    currentMode === "captain";
 
   appRoot().innerHTML = `
     <div class="app-shell">
@@ -700,23 +1314,73 @@ function showHome() {
       <header class="top-header">
 
         <div>
-          <h2>وصلني المنوفية</h2>
+
+          <h2>
+            وصلني المنوفية
+          </h2>
+
           <small>
-            أهلاً ${escapeHtml(
+            أهلاً
+            ${escapeHtml(
               currentProfile.name || ""
             )}
           </small>
+
         </div>
 
         <button
           id="profileBtn"
           class="icon-btn"
-          title="الحساب"
+          title="بياناتك الشخصية"
         >
           👤
         </button>
 
       </header>
+
+      <div class="mode-switch">
+
+        <button
+          id="customerModeBtn"
+          class="
+            mode-switch-btn
+            ${
+              currentMode ===
+              "customer"
+                ? "active"
+                : ""
+            }
+            ${
+              hasRole("customer")
+                ? ""
+                : "disabled"
+            }
+          "
+        >
+          👤 عميل
+        </button>
+
+        <button
+          id="captainModeBtn"
+          class="
+            mode-switch-btn
+            ${
+              currentMode ===
+              "captain"
+                ? "active"
+                : ""
+            }
+            ${
+              hasRole("captain")
+                ? ""
+                : "disabled"
+            }
+          "
+        >
+          🚕 كابتن
+        </button>
+
+      </div>
 
       <main id="mainContent">
 
@@ -735,7 +1399,9 @@ function showHome() {
           id="homeNav"
         >
           🏠
-          <span>الرئيسية</span>
+          <span>
+            الرئيسية
+          </span>
         </button>
 
         ${
@@ -746,7 +1412,9 @@ function showHome() {
                 id="ridesNav"
               >
                 🚕
-                <span>الرحلات</span>
+                <span>
+                  الرحلات
+                </span>
               </button>
             `
             : `
@@ -755,7 +1423,9 @@ function showHome() {
                 id="myRidesNav"
               >
                 📋
-                <span>رحلاتي</span>
+                <span>
+                  رحلاتي
+                </span>
               </button>
             `
         }
@@ -765,7 +1435,9 @@ function showHome() {
           id="profileNav"
         >
           👤
-          <span>حسابي</span>
+          <span>
+            بياناتي
+          </span>
         </button>
 
       </nav>
@@ -773,50 +1445,143 @@ function showHome() {
     </div>
   `;
 
-  $("profileBtn").addEventListener(
-    "click",
-    showProfile
-  );
+  $("profileBtn")
+    .addEventListener(
+      "click",
+      showProfile
+    );
 
-  $("homeNav").addEventListener(
-    "click",
-    showHome
-  );
+  $("homeNav")
+    .addEventListener(
+      "click",
+      showHome
+    );
 
-  $("profileNav").addEventListener(
-    "click",
-    showProfile
-  );
+  $("profileNav")
+    .addEventListener(
+      "click",
+      showProfile
+    );
+
+  $("customerModeBtn")
+    .addEventListener(
+      "click",
+      () =>
+        switchMode("customer")
+    );
+
+  $("captainModeBtn")
+    .addEventListener(
+      "click",
+      () =>
+        switchMode("captain")
+    );
 
   if (isCaptain) {
-    $("ridesNav").addEventListener(
-      "click",
-      showCaptainRides
-    );
+
+    $("ridesNav")
+      .addEventListener(
+        "click",
+        showCaptainRides
+      );
+
+    $("captainRidesHomeBtn")
+      ?.addEventListener(
+        "click",
+        showCaptainRides
+      );
+
   } else {
-    $("myRidesNav").addEventListener(
-      "click",
-      showCustomerRides
+
+    $("myRidesNav")
+      .addEventListener(
+        "click",
+        showCustomerRides
+      );
+
+    $("requestRideBtn")
+      ?.addEventListener(
+        "click",
+        showRideRequest
+      );
+  }
+}
+
+/* ======================================================
+   SWITCH MODE
+====================================================== */
+
+async function switchMode(
+  mode
+) {
+
+  if (!hasRole(mode)) {
+
+    if (mode === "captain") {
+      showCaptainActivation();
+    }
+
+    return;
+  }
+
+  currentMode = mode;
+
+  try {
+
+    await updateDoc(
+      doc(
+        db,
+        "users",
+        currentUser.uid
+      ),
+      {
+        activeRole: mode
+      }
     );
 
-    $("requestRideBtn").addEventListener(
-      "click",
-      showRideRequest
+    currentProfile.activeRole =
+      mode;
+
+    showHome();
+
+    showMessage(
+      `تم التبديل إلى وضع ${roleName(mode)} 👌`,
+      "success",
+      2500
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    showMessage(
+      "تعذر تغيير الوضع حالياً",
+      "error"
     );
   }
 }
 
+/* ======================================================
+   CUSTOMER HOME
+====================================================== */
+
 function customerHomeHtml() {
+
   return `
     <section class="home-section">
 
       <div class="welcome-card">
 
         <div>
-          <h3>عايز تروح فين؟</h3>
+
+          <h3>
+            عايز تروح فين؟
+          </h3>
+
           <p>
             حدد مكانك والوجهة واعرض السعر اللي يناسبك.
           </p>
+
         </div>
 
         <div class="big-car">
@@ -835,10 +1600,15 @@ function customerHomeHtml() {
         </div>
 
         <div>
-          <strong>اطلب رحلة</strong>
+
+          <strong>
+            اطلب رحلة
+          </strong>
+
           <span>
             حدد مكان الانطلاق والنزول
           </span>
+
         </div>
 
         <div class="arrow">
@@ -851,17 +1621,23 @@ function customerHomeHtml() {
 
         <div class="info-card">
           <b>📍</b>
-          <span>حدد موقعك بدقة</span>
+          <span>
+            حدد موقعك بدقة
+          </span>
         </div>
 
         <div class="info-card">
           <b>💰</b>
-          <span>حدد السعر المناسب</span>
+          <span>
+            حدد السعر المناسب
+          </span>
         </div>
 
         <div class="info-card">
           <b>🚕</b>
-          <span>اختار عرض الكابتن</span>
+          <span>
+            اختار عرض الكابتن
+          </span>
         </div>
 
       </div>
@@ -870,17 +1646,30 @@ function customerHomeHtml() {
   `;
 }
 
+/* ======================================================
+   CAPTAIN HOME
+====================================================== */
+
 function captainHomeHtml() {
+
   return `
     <section class="home-section">
 
-      <div class="welcome-card captain-welcome">
+      <div class="
+        welcome-card
+        captain-welcome
+      ">
 
         <div>
-          <h3>أهلاً يا كابتن 👋</h3>
+
+          <h3>
+            أهلاً يا كابتن 👋
+          </h3>
+
           <p>
             شوف الرحلات القريبة منك واختار الرحلة المناسبة.
           </p>
+
         </div>
 
         <div class="big-car">
@@ -899,10 +1688,15 @@ function captainHomeHtml() {
         </div>
 
         <div>
-          <strong>الرحلات المتاحة</strong>
+
+          <strong>
+            الرحلات المتاحة
+          </strong>
+
           <span>
             شوف الطلبات واعرض سعرك
           </span>
+
         </div>
 
         <div class="arrow">
@@ -913,32 +1707,43 @@ function captainHomeHtml() {
 
       <div class="captain-info">
 
-        <h3>بيانات العربية</h3>
+        <h3>
+          بيانات العربية
+        </h3>
 
         <div class="profile-mini">
 
           <div>
+
             <strong>
               ${escapeHtml(
-                currentProfile.carType || "-"
+                currentProfile.carType ||
+                "-"
               )}
             </strong>
 
             <span>
               ${escapeHtml(
-                currentProfile.carModel || "-"
+                currentProfile.carModel ||
+                "-"
               )}
             </span>
+
           </div>
 
           <div>
-            <strong>اللوحة</strong>
+
+            <strong>
+              اللوحة
+            </strong>
 
             <span>
               ${escapeHtml(
-                currentProfile.plateNumber || "-"
+                currentProfile.plateNumber ||
+                "-"
               )}
             </span>
+
           </div>
 
         </div>
@@ -947,7 +1752,316 @@ function captainHomeHtml() {
 
     </section>
   `;
+}
 
+/* ======================================================
+   CAPTAIN ACTIVATION
+====================================================== */
+
+function showCaptainActivation() {
+
+  appRoot().innerHTML = `
+    <div class="app-shell">
+
+      <header class="top-header">
+
+        <button
+          id="backProfileBtn"
+          class="back-btn"
+        >
+          ← رجوع
+        </button>
+
+        <div>
+
+          <h2>
+            تفعيل وضع الكابتن
+          </h2>
+
+          <small>
+            استخدم نفس حسابك
+          </small>
+
+        </div>
+
+        <div></div>
+
+      </header>
+
+      <main class="content-page">
+
+        <div class="profile-card">
+
+          <div class="big-role-icon">
+            🚕
+          </div>
+
+          <h2>
+            خلي حسابك عميل وكابتن
+          </h2>
+
+          <p class="page-description">
+            مش محتاج تعمل حساب جديد.
+            هنضيف وضع الكابتن لنفس رقم الموبايل
+            وهنحفظ بيانات عربيتك في بياناتك الشخصية.
+          </p>
+
+          <div class="ride-details">
+
+            <label>
+              السن
+            </label>
+
+            <input
+              id="captainAge"
+              type="number"
+              min="18"
+              max="80"
+              placeholder="مثال: 30"
+            />
+
+            <label>
+              نوع العربية
+            </label>
+
+            <select id="captainCarType">
+
+              <option value="">
+                اختر نوع العربية
+              </option>
+
+              <option value="ملاكي">
+                ملاكي
+              </option>
+
+              <option value="ميكروباص">
+                ميكروباص
+              </option>
+
+              <option value="نقل">
+                نقل
+              </option>
+
+              <option value="نصف نقل">
+                نصف نقل
+              </option>
+
+              <option value="دبابة">
+                دبابة
+              </option>
+
+            </select>
+
+            <label>
+              موديل العربية
+            </label>
+
+            <input
+              id="captainCarModel"
+              type="text"
+              placeholder="مثال: تويوتا 2020"
+            />
+
+            <label>
+              رقم اللوحة
+            </label>
+
+            <input
+              id="captainPlate"
+              type="text"
+              placeholder="رقم اللوحة"
+            />
+
+            <button
+              id="activateCaptainBtn"
+              class="primary-btn"
+            >
+              🚕 تفعيل وضع الكابتن
+            </button>
+
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+  `;
+
+  $("backProfileBtn")
+    .addEventListener(
+      "click",
+      showProfile
+    );
+
+  $("activateCaptainBtn")
+    .addEventListener(
+      "click",
+      activateCaptain
+    );
+}
+
+async function activateCaptain() {
+
+  const age =
+    Number(
+      $("captainAge").value
+    );
+
+  const carType =
+    $("captainCarType").value;
+
+  const carModel =
+    $("captainCarModel")
+      .value
+      .trim();
+
+  const plateNumber =
+    $("captainPlate")
+      .value
+      .trim();
+
+  if (!age || age < 18) {
+
+    showMessage(
+      "الكابتن لازم يكون عمره 18 سنة أو أكثر",
+      "warning"
+    );
+
+    return;
+  }
+
+  if (!carType) {
+
+    showMessage(
+      "اختار نوع العربية",
+      "warning"
+    );
+
+    return;
+  }
+
+  if (!carModel) {
+
+    showMessage(
+      "اكتب موديل العربية",
+      "warning"
+    );
+
+    return;
+  }
+
+  if (!plateNumber) {
+
+    showMessage(
+      "اكتب رقم اللوحة",
+      "warning"
+    );
+
+    return;
+  }
+
+  const button =
+    $("activateCaptainBtn");
+
+  try {
+
+    setLoading(
+      button,
+      true,
+      "جاري التفعيل..."
+    );
+
+    const oldRoles =
+      getRoles();
+
+    const roles =
+      Array.from(
+        new Set([
+          ...oldRoles,
+          "customer",
+          "captain"
+        ])
+      );
+
+    await updateDoc(
+      doc(
+        db,
+        "users",
+        currentUser.uid
+      ),
+      {
+
+        roles,
+
+        activeRole:
+          "captain",
+
+        type:
+          "captain",
+
+        age,
+
+        carType,
+
+        carModel,
+
+        plateNumber,
+
+        rating:
+          currentProfile.rating || 5,
+
+        totalRides:
+          currentProfile.totalRides || 0
+      }
+    );
+
+    currentProfile.roles =
+      roles;
+
+    currentProfile.activeRole =
+      "captain";
+
+    currentProfile.type =
+      "captain";
+
+    currentProfile.age =
+      age;
+
+    currentProfile.carType =
+      carType;
+
+    currentProfile.carModel =
+      carModel;
+
+    currentProfile.plateNumber =
+      plateNumber;
+
+    currentMode =
+      "captain";
+
+    showMessage(
+      "تم تفعيل وضع الكابتن بنجاح 🚕",
+      "success",
+      4000
+    );
+
+    showHome();
+
+  } catch (error) {
+
+    console.error(error);
+
+    showMessage(
+      "تعذر تفعيل وضع الكابتن",
+      "error"
+    );
+
+    setLoading(
+      button,
+      false
+    );
+  }
 }
 
 /* ======================================================
@@ -955,6 +2069,7 @@ function captainHomeHtml() {
 ====================================================== */
 
 function showRideRequest() {
+
   appRoot().innerHTML = `
     <div class="app-shell">
 
@@ -968,8 +2083,15 @@ function showRideRequest() {
         </button>
 
         <div>
-          <h2>طلب رحلة</h2>
-          <small>حدد تفاصيل الرحلة</small>
+
+          <h2>
+            طلب رحلة
+          </h2>
+
+          <small>
+            حدد تفاصيل الرحلة
+          </small>
+
         </div>
 
         <div></div>
@@ -986,7 +2108,6 @@ function showRideRequest() {
 
             <button
               id="myLocationBtn"
-              title="موقعي الحالي"
             >
               📍
             </button>
@@ -1011,10 +2132,18 @@ function showRideRequest() {
 
           <div class="location-input">
 
-            <div class="location-dot pickup-dot"></div>
+            <div
+              class="
+                location-dot
+                pickup-dot
+              "
+            ></div>
 
             <div>
-              <label>مكان الانطلاق</label>
+
+              <label>
+                مكان الانطلاق
+              </label>
 
               <div
                 id="pickupText"
@@ -1022,6 +2151,7 @@ function showRideRequest() {
               >
                 جاري تحديد موقعك...
               </div>
+
             </div>
 
           </div>
@@ -1030,11 +2160,22 @@ function showRideRequest() {
 
           <div class="location-input">
 
-            <div class="location-dot destination-dot"></div>
+            <div
+              class="
+                location-dot
+                destination-dot
+              "
+            ></div>
 
-            <div class="destination-search-wrapper">
+            <div
+              class="
+                destination-search-wrapper
+              "
+            >
 
-              <label>مكان النزول</label>
+              <label>
+                مكان النزول
+              </label>
 
               <input
                 id="destinationSearch"
@@ -1057,24 +2198,45 @@ function showRideRequest() {
         <div class="coordinates-box">
 
           <div>
-            <span>خط العرض</span>
-            <b id="latValue">-</b>
+
+            <span>
+              خط العرض
+            </span>
+
+            <b id="latValue">
+              -
+            </b>
+
           </div>
 
           <div>
-            <span>خط الطول</span>
-            <b id="lngValue">-</b>
+
+            <span>
+              خط الطول
+            </span>
+
+            <b id="lngValue">
+              -
+            </b>
+
           </div>
 
         </div>
 
-        <div id="routeInfo" class="route-info"></div>
+        <div
+          id="routeInfo"
+          class="route-info"
+        ></div>
 
         <div class="ride-details">
 
-          <h3>تفاصيل الرحلة</h3>
+          <h3>
+            تفاصيل الرحلة
+          </h3>
 
-          <label>عدد الركاب</label>
+          <label>
+            عدد الركاب
+          </label>
 
           <input
             id="passengers"
@@ -1084,7 +2246,9 @@ function showRideRequest() {
             value="1"
           />
 
-          <label>السعر المقترح</label>
+          <label>
+            السعر المقترح
+          </label>
 
           <div class="price-input">
 
@@ -1095,11 +2259,15 @@ function showRideRequest() {
               placeholder="مثال: 100"
             />
 
-            <span>جنيه</span>
+            <span>
+              جنيه
+            </span>
 
           </div>
 
-          <label>ملاحظات</label>
+          <label>
+            ملاحظات
+          </label>
 
           <textarea
             id="rideNotes"
@@ -1121,37 +2289,43 @@ function showRideRequest() {
     </div>
   `;
 
-  $("backHomeBtn").addEventListener(
-    "click",
-    showHome
-  );
+  $("backHomeBtn")
+    .addEventListener(
+      "click",
+      showHome
+    );
 
   initMap();
 
-  $("myLocationBtn").addEventListener(
-    "click",
-    locateUser
-  );
+  $("myLocationBtn")
+    .addEventListener(
+      "click",
+      locateUser
+    );
 
-  $("zoomInBtn").addEventListener(
-    "click",
-    () => map?.zoomIn()
-  );
+  $("zoomInBtn")
+    .addEventListener(
+      "click",
+      () => map?.zoomIn()
+    );
 
-  $("zoomOutBtn").addEventListener(
-    "click",
-    () => map?.zoomOut()
-  );
+  $("zoomOutBtn")
+    .addEventListener(
+      "click",
+      () => map?.zoomOut()
+    );
 
-  $("destinationSearch").addEventListener(
-    "input",
-    handleDestinationSearch
-  );
+  $("destinationSearch")
+    .addEventListener(
+      "input",
+      handleDestinationSearch
+    );
 
-  $("submitRideBtn").addEventListener(
-    "click",
-    submitRide
-  );
+  $("submitRideBtn")
+    .addEventListener(
+      "click",
+      submitRide
+    );
 
   locateUser();
 }
@@ -1161,6 +2335,7 @@ function showRideRequest() {
 ====================================================== */
 
 function initMap() {
+
   if (!$("map")) return;
 
   const defaultCenter = [
@@ -1168,24 +2343,32 @@ function initMap() {
     30.9750
   ];
 
-  map = L.map("map", {
-    zoomControl: false,
-    attributionControl: true,
-    preferCanvas: true
-  }).setView(defaultCenter, 13);
+  map =
+    L.map(
+      "map",
+      {
+        zoomControl: false,
+        attributionControl: true,
+        preferCanvas: true
+      }
+    ).setView(
+      defaultCenter,
+      13
+    );
 
   L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
       maxZoom: 20,
       attribution:
-        '&copy; OpenStreetMap contributors'
+        "&copy; OpenStreetMap contributors"
     }
   ).addTo(map);
 
   map.on(
     "click",
     async (event) => {
+
       await setDestination(
         event.latlng.lat,
         event.latlng.lng
@@ -1195,21 +2378,27 @@ function initMap() {
 }
 
 async function locateUser() {
+
   if (!map) return;
 
   try {
+
     const permission =
       await Geolocation.checkPermissions();
 
     if (
-      permission.location !== "granted"
+      permission.location !==
+      "granted"
     ) {
+
       const requested =
         await Geolocation.requestPermissions();
 
       if (
-        requested.location !== "granted"
+        requested.location !==
+        "granted"
       ) {
+
         showMessage(
           "اسمح للتطبيق باستخدام الموقع من إعدادات الهاتف",
           "error"
@@ -1220,11 +2409,13 @@ async function locateUser() {
     }
 
     const position =
-      await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000
-      });
+      await Geolocation.getCurrentPosition(
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 5000
+        }
+      );
 
     const lat =
       position.coords.latitude;
@@ -1233,7 +2424,8 @@ async function locateUser() {
       position.coords.longitude;
 
     const accuracy =
-      position.coords.accuracy || 30;
+      position.coords.accuracy ||
+      30;
 
     pickupLocation = {
       lat,
@@ -1245,22 +2437,32 @@ async function locateUser() {
     }
 
     pickupMarker =
-      L.marker([lat, lng], {
-        title: "موقع الانطلاق"
-      })
+      L.marker(
+        [lat, lng],
+        {
+          title:
+            "موقع الانطلاق"
+        }
+      )
         .addTo(map)
-        .bindPopup("📍 مكان الانطلاق");
+        .bindPopup(
+          "📍 مكان الانطلاق"
+        );
 
     if (accuracyCircle) {
       accuracyCircle.remove();
     }
 
     accuracyCircle =
-      L.circle([lat, lng], {
-        radius: accuracy,
-        weight: 2,
-        fillOpacity: 0.08
-      }).addTo(map);
+      L.circle(
+        [lat, lng],
+        {
+          radius:
+            accuracy,
+          weight: 2,
+          fillOpacity: 0.08
+        }
+      ).addTo(map);
 
     map.setView(
       [lat, lng],
@@ -1270,11 +2472,17 @@ async function locateUser() {
       }
     );
 
-    $("latValue").textContent =
-      lat.toFixed(6);
+    if ($("latValue")) {
+      $("latValue")
+        .textContent =
+        lat.toFixed(6);
+    }
 
-    $("lngValue").textContent =
-      lng.toFixed(6);
+    if ($("lngValue")) {
+      $("lngValue")
+        .textContent =
+        lng.toFixed(6);
+    }
 
     await reverseGeocode(
       lat,
@@ -1283,6 +2491,7 @@ async function locateUser() {
     );
 
   } catch (error) {
+
     console.error(error);
 
     showMessage(
@@ -1291,7 +2500,8 @@ async function locateUser() {
     );
 
     if ($("pickupText")) {
-      $("pickupText").textContent =
+      $("pickupText")
+        .textContent =
         "تعذر تحديد الموقع";
     }
   }
@@ -1306,19 +2516,23 @@ async function reverseGeocode(
   lng,
   elementId
 ) {
+
   try {
-    const response = await fetch(
-      `${NOMINATIM_URL}/reverse?format=jsonv2&lat=${encodeURIComponent(
-        lat
-      )}&lon=${encodeURIComponent(
-        lng
-      )}&zoom=18&addressdetails=1`,
-      {
-        headers: {
-          Accept: "application/json"
+
+    const response =
+      await fetch(
+        `${NOMINATIM_URL}/reverse?format=jsonv2&lat=${encodeURIComponent(
+          lat
+        )}&lon=${encodeURIComponent(
+          lng
+        )}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            Accept:
+              "application/json"
+          }
         }
-      }
-    );
+      );
 
     if (!response.ok) {
       throw new Error(
@@ -1331,18 +2545,40 @@ async function reverseGeocode(
 
     const text =
       data.display_name ||
-      `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      `${lat.toFixed(
+        6
+      )}, ${lng.toFixed(6)}`;
 
     if ($(elementId)) {
-      $(elementId).textContent = text;
+      $(elementId)
+        .value !== undefined
+        ? ($(elementId).value =
+            text)
+        : ($(elementId).textContent =
+            text);
     }
 
   } catch (error) {
+
     console.error(error);
 
     if ($(elementId)) {
-      $(elementId).textContent =
-        `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+      const text =
+        `${lat.toFixed(
+          6
+        )}, ${lng.toFixed(6)}`;
+
+      if (
+        "value" in
+        $(elementId)
+      ) {
+        $(elementId).value =
+          text;
+      } else {
+        $(elementId).textContent =
+          text;
+      }
     }
   }
 }
@@ -1351,7 +2587,10 @@ async function reverseGeocode(
    DESTINATION SEARCH
 ====================================================== */
 
-function handleDestinationSearch(event) {
+function handleDestinationSearch(
+  event
+) {
+
   const value =
     event.target.value.trim();
 
@@ -1360,19 +2599,27 @@ function handleDestinationSearch(event) {
   );
 
   if (value.length < 3) {
-    $("searchResults").innerHTML = "";
+
+    $("searchResults")
+      .innerHTML = "";
+
     return;
   }
 
   destinationSearchTimer =
     setTimeout(
-      () => searchPlaces(value),
+      () =>
+        searchPlaces(value),
       600
     );
 }
 
-async function searchPlaces(queryText) {
+async function searchPlaces(
+  queryText
+) {
+
   try {
+
     const url =
       `${NOMINATIM_URL}/search?format=jsonv2` +
       `&q=${encodeURIComponent(
@@ -1383,11 +2630,15 @@ async function searchPlaces(queryText) {
       `&limit=8`;
 
     const response =
-      await fetch(url, {
-        headers: {
-          Accept: "application/json"
+      await fetch(
+        url,
+        {
+          headers: {
+            Accept:
+              "application/json"
+          }
         }
-      });
+      );
 
     if (!response.ok) {
       throw new Error(
@@ -1404,6 +2655,7 @@ async function searchPlaces(queryText) {
     if (!container) return;
 
     if (!results.length) {
+
       container.innerHTML = `
         <div class="no-results">
           مفيش نتائج
@@ -1416,17 +2668,22 @@ async function searchPlaces(queryText) {
     container.innerHTML =
       results
         .map(
-          (result, index) => `
+          (
+            result,
+            index
+          ) => `
             <button
               class="search-result"
               data-index="${index}"
             >
               📍
+
               <span>
                 ${escapeHtml(
                   result.display_name
                 )}
               </span>
+
             </button>
           `
         )
@@ -1436,35 +2693,44 @@ async function searchPlaces(queryText) {
       .querySelectorAll(
         ".search-result"
       )
-      .forEach((button) => {
+      .forEach(
+        (button) => {
 
-        button.addEventListener(
-          "click",
-          async () => {
+          button.addEventListener(
+            "click",
+            async () => {
 
-            const result =
-              results[
+              const result =
+                results[
+                  Number(
+                    button.dataset
+                      .index
+                  )
+                ];
+
+              await setDestination(
                 Number(
-                  button.dataset.index
-                )
-              ];
+                  result.lat
+                ),
+                Number(
+                  result.lon
+                ),
+                result.display_name
+              );
 
-            await setDestination(
-              Number(result.lat),
-              Number(result.lon),
-              result.display_name
-            );
+              $("destinationSearch")
+                .value =
+                result.display_name;
 
-            $("destinationSearch").value =
-              result.display_name;
-
-            container.innerHTML = "";
-          }
-        );
-
-      });
+              container
+                .innerHTML = "";
+            }
+          );
+        }
+      );
 
   } catch (error) {
+
     console.error(error);
 
     showMessage(
@@ -1475,7 +2741,7 @@ async function searchPlaces(queryText) {
 }
 
 /* ======================================================
-   DESTINATION MARKER
+   DESTINATION
 ====================================================== */
 
 async function setDestination(
@@ -1483,6 +2749,7 @@ async function setDestination(
   lng,
   label = null
 ) {
+
   destinationLocation = {
     lat,
     lng
@@ -1493,10 +2760,14 @@ async function setDestination(
   }
 
   destinationMarker =
-    L.marker([lat, lng], {
-      draggable: true,
-      title: "مكان النزول"
-    })
+    L.marker(
+      [lat, lng],
+      {
+        draggable: true,
+        title:
+          "مكان النزول"
+      }
+    )
       .addTo(map)
       .bindPopup(
         "📍 مكان النزول"
@@ -1511,8 +2782,10 @@ async function setDestination(
         event.target.getLatLng();
 
       destinationLocation = {
-        lat: position.lat,
-        lng: position.lng
+        lat:
+          position.lat,
+        lng:
+          position.lng
       };
 
       await reverseGeocode(
@@ -1526,9 +2799,13 @@ async function setDestination(
   );
 
   if (label) {
-    $("destinationSearch").value =
+
+    $("destinationSearch")
+      .value =
       label;
+
   } else {
+
     await reverseGeocode(
       lat,
       lng,
@@ -1536,15 +2813,18 @@ async function setDestination(
     );
   }
 
-  $("latValue").textContent =
+  $("latValue")
+    .textContent =
     lat.toFixed(6);
 
-  $("lngValue").textContent =
+  $("lngValue")
+    .textContent =
     lng.toFixed(6);
 
   await drawRoute();
 
   if (pickupLocation) {
+
     const bounds =
       L.latLngBounds([
         [
@@ -1554,10 +2834,18 @@ async function setDestination(
         [lat, lng]
       ]);
 
-    map.fitBounds(bounds, {
-      padding: [50, 50]
-    });
+    map.fitBounds(
+      bounds,
+      {
+        padding: [
+          50,
+          50
+        ]
+      }
+    );
+
   } else {
+
     map.setView(
       [lat, lng],
       17
@@ -1570,6 +2858,7 @@ async function setDestination(
 ====================================================== */
 
 async function drawRoute() {
+
   if (
     !pickupLocation ||
     !destinationLocation
@@ -1578,6 +2867,7 @@ async function drawRoute() {
   }
 
   try {
+
     const url =
       `${OSRM_URL}/route/v1/driving/` +
       `${pickupLocation.lng},${pickupLocation.lat};` +
@@ -1624,36 +2914,59 @@ async function drawRoute() {
       ).addTo(map);
 
     const distanceKm =
-      route.distance / 1000;
+      route.distance /
+      1000;
 
     const durationMin =
-      route.duration / 60;
+      route.duration /
+      60;
 
-    $("routeInfo").innerHTML = `
-      <div>
-        <strong>المسافة</strong>
-        <span>
-          ${distanceKm.toFixed(1)} كم
-        </span>
-      </div>
+    if ($("routeInfo")) {
 
-      <div>
-        <strong>الوقت التقريبي</strong>
-        <span>
-          ${Math.round(durationMin)} دقيقة
-        </span>
-      </div>
-    `;
+      $("routeInfo")
+        .innerHTML = `
+          <div>
+
+            <strong>
+              المسافة
+            </strong>
+
+            <span>
+              ${distanceKm.toFixed(
+                1
+              )} كم
+            </span>
+
+          </div>
+
+          <div>
+
+            <strong>
+              الوقت التقريبي
+            </strong>
+
+            <span>
+              ${Math.round(
+                durationMin
+              )} دقيقة
+            </span>
+
+          </div>
+        `;
+    }
 
   } catch (error) {
+
     console.error(error);
 
     if ($("routeInfo")) {
-      $("routeInfo").innerHTML = `
-        <div>
-          لم يتم حساب الطريق حالياً
-        </div>
-      `;
+
+      $("routeInfo")
+        .innerHTML = `
+          <div>
+            لم يتم حساب الطريق حالياً
+          </div>
+        `;
     }
   }
 }
@@ -1663,51 +2976,68 @@ async function drawRoute() {
 ====================================================== */
 
 async function submitRide() {
+
   if (!currentUser) {
     showLogin();
     return;
   }
 
   if (!pickupLocation) {
+
     showMessage(
       "حدد مكان الانطلاق أولاً",
-      "error"
+      "warning"
     );
 
     return;
   }
 
   if (!destinationLocation) {
+
     showMessage(
       "حدد مكان النزول أولاً",
-      "error"
+      "warning"
     );
 
     return;
   }
 
   const passengers =
-    Number($("passengers").value);
+    Number(
+      $("passengers").value
+    );
 
   const price =
-    Number($("ridePrice").value);
+    Number(
+      $("ridePrice").value
+    );
 
   const notes =
-    $("rideNotes").value.trim();
+    $("rideNotes")
+      .value
+      .trim();
 
-  if (!passengers || passengers < 1) {
+  if (
+    !passengers ||
+    passengers < 1
+  ) {
+
     showMessage(
       "اكتب عدد الركاب",
-      "error"
+      "warning"
     );
 
     return;
   }
 
-  if (!price || price <= 0) {
+  if (
+    !price ||
+    price <= 0
+  ) {
+
     showMessage(
       "اكتب السعر المقترح",
-      "error"
+      "warning"
     );
 
     return;
@@ -1717,6 +3047,7 @@ async function submitRide() {
     $("submitRideBtn");
 
   try {
+
     setLoading(
       button,
       true,
@@ -1724,10 +3055,12 @@ async function submitRide() {
     );
 
     const pickupText =
-      $("pickupText")?.textContent || "";
+      $("pickupText")
+        ?.textContent || "";
 
     const destinationText =
-      $("destinationSearch")?.value || "";
+      $("destinationSearch")
+        ?.value || "";
 
     const rideData = {
 
@@ -1735,18 +3068,31 @@ async function submitRide() {
         currentUser.uid,
 
       customerName:
-        currentProfile.name || "",
+        currentProfile.name ||
+        "",
 
       pickup: {
-        lat: pickupLocation.lat,
-        lng: pickupLocation.lng,
-        address: pickupText
+
+        lat:
+          pickupLocation.lat,
+
+        lng:
+          pickupLocation.lng,
+
+        address:
+          pickupText
       },
 
       destination: {
-        lat: destinationLocation.lat,
-        lng: destinationLocation.lng,
-        address: destinationText
+
+        lat:
+          destinationLocation.lat,
+
+        lng:
+          destinationLocation.lng,
+
+        address:
+          destinationText
       },
 
       passengers,
@@ -1755,26 +3101,31 @@ async function submitRide() {
 
       notes,
 
-      status: "open",
+      status:
+        "open",
 
       createdAt:
         serverTimestamp()
-
     };
 
     await addDoc(
-      collection(db, "rides"),
+      collection(
+        db,
+        "rides"
+      ),
       rideData
     );
 
     showMessage(
-      "تم نشر الرحلة للكباتن بنجاح",
-      "success"
+      "تم نشر الرحلة للكباتن بنجاح 🚕",
+      "success",
+      4000
     );
 
     showCustomerRides();
 
   } catch (error) {
+
     console.error(error);
 
     showMessage(
@@ -1794,14 +3145,22 @@ async function submitRide() {
 ====================================================== */
 
 function showCustomerRides() {
+
   appRoot().innerHTML = `
     <div class="app-shell">
 
       <header class="top-header">
 
         <div>
-          <h2>رحلاتي</h2>
-          <small>الرحلات اللي طلبتها</small>
+
+          <h2>
+            رحلاتي
+          </h2>
+
+          <small>
+            الرحلات اللي طلبتها
+          </small>
+
         </div>
 
         <button
@@ -1833,14 +3192,18 @@ function showCustomerRides() {
           id="homeNav"
         >
           🏠
-          <span>الرئيسية</span>
+          <span>
+            الرئيسية
+          </span>
         </button>
 
         <button
           class="nav-btn active"
         >
           📋
-          <span>رحلاتي</span>
+          <span>
+            رحلاتي
+          </span>
         </button>
 
         <button
@@ -1848,7 +3211,9 @@ function showCustomerRides() {
           id="profileNav"
         >
           👤
-          <span>حسابي</span>
+          <span>
+            بياناتي
+          </span>
         </button>
 
       </nav>
@@ -1856,34 +3221,42 @@ function showCustomerRides() {
     </div>
   `;
 
-  $("backHomeBtn").addEventListener(
-    "click",
-    showHome
-  );
+  $("backHomeBtn")
+    .addEventListener(
+      "click",
+      showHome
+    );
 
-  $("homeNav").addEventListener(
-    "click",
-    showHome
-  );
+  $("homeNav")
+    .addEventListener(
+      "click",
+      showHome
+    );
 
-  $("profileNav").addEventListener(
-    "click",
-    showProfile
-  );
+  $("profileNav")
+    .addEventListener(
+      "click",
+      showProfile
+    );
 
   loadCustomerRides();
 }
 
 async function loadCustomerRides() {
+
   const container =
     $("customerRidesList");
 
   if (!container) return;
 
   try {
+
     const q =
       query(
-        collection(db, "rides"),
+        collection(
+          db,
+          "rides"
+        ),
         where(
           "customerId",
           "==",
@@ -1897,10 +3270,13 @@ async function loadCustomerRides() {
 
     const rides =
       snapshot.docs
-        .map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data()
-        }))
+        .map(
+          (docSnap) => ({
+            id:
+              docSnap.id,
+            ...docSnap.data()
+          })
+        )
         .sort(
           (a, b) =>
             timestampValue(
@@ -1912,24 +3288,37 @@ async function loadCustomerRides() {
         );
 
     if (!rides.length) {
+
       container.innerHTML = `
         <div class="empty-state">
-          <div>🚕</div>
-          <h3>مفيش رحلات لسه</h3>
-          <p>اطلب أول رحلة ليك.</p>
+
+          <div>
+            🚕
+          </div>
+
+          <h3>
+            مفيش رحلات لسه
+          </h3>
+
+          <p>
+            اطلب أول رحلة ليك.
+          </p>
+
           <button
             id="newRideBtn"
             class="primary-btn"
           >
             اطلب رحلة
           </button>
+
         </div>
       `;
 
-      $("newRideBtn").addEventListener(
-        "click",
-        showRideRequest
-      );
+      $("newRideBtn")
+        .addEventListener(
+          "click",
+          showRideRequest
+        );
 
       return;
     }
@@ -1946,12 +3335,14 @@ async function loadCustomerRides() {
 
     rides.forEach(
       (ride) => {
+
         const button =
           document.querySelector(
             `[data-offers="${ride.id}"]`
           );
 
         if (button) {
+
           button.addEventListener(
             "click",
             () =>
@@ -1964,6 +3355,7 @@ async function loadCustomerRides() {
     );
 
   } catch (error) {
+
     console.error(error);
 
     container.innerHTML = `
@@ -1974,26 +3366,10 @@ async function loadCustomerRides() {
   }
 }
 
-function timestampValue(timestamp) {
-  if (!timestamp) return 0;
+function customerRideCard(
+  ride
+) {
 
-  if (
-    typeof timestamp.toMillis ===
-    "function"
-  ) {
-    return timestamp.toMillis();
-  }
-
-  if (
-    timestamp.seconds !== undefined
-  ) {
-    return timestamp.seconds * 1000;
-  }
-
-  return 0;
-}
-
-function customerRideCard(ride) {
   const statusText =
     ride.status === "open"
       ? "في انتظار الكباتن"
@@ -2003,7 +3379,8 @@ function customerRideCard(ride) {
       ? "مكتملة"
       : ride.status === "cancelled"
       ? "ملغاة"
-      : ride.status || "غير معروف";
+      : ride.status ||
+        "غير معروف";
 
   return `
     <div class="ride-card">
@@ -2015,42 +3392,57 @@ function customerRideCard(ride) {
         </strong>
 
         <span class="ride-price">
-          ${money(ride.price)} جنيه
+          ${money(
+            ride.price
+          )}
+          جنيه
         </span>
 
       </div>
 
       <div class="ride-location">
-        <b>📍</b>
+
+        <b>
+          📍
+        </b>
+
         <span>
           ${escapeHtml(
             ride.pickup?.address ||
-              "مكان الانطلاق"
+            "مكان الانطلاق"
           )}
         </span>
+
       </div>
 
       <div class="ride-location">
-        <b>🏁</b>
+
+        <b>
+          🏁
+        </b>
+
         <span>
           ${escapeHtml(
             ride.destination?.address ||
-              "مكان النزول"
+            "مكان النزول"
           )}
         </span>
+
       </div>
 
       <div class="ride-meta">
 
         <span>
-          👥 ${ride.passengers || 1}
+          👥
+          ${ride.passengers || 1}
         </span>
 
         ${
           ride.notes
             ? `
               <span>
-                📝 ${escapeHtml(
+                📝
+                ${escapeHtml(
                   ride.notes
                 )}
               </span>
@@ -2081,7 +3473,10 @@ function customerRideCard(ride) {
    OFFERS
 ====================================================== */
 
-async function showRideOffers(rideId) {
+async function showRideOffers(
+  rideId
+) {
+
   appRoot().innerHTML = `
     <div class="app-shell">
 
@@ -2095,8 +3490,15 @@ async function showRideOffers(rideId) {
         </button>
 
         <div>
-          <h2>عروض الكباتن</h2>
-          <small>اختار العرض المناسب</small>
+
+          <h2>
+            عروض الكباتن
+          </h2>
+
+          <small>
+            اختار العرض المناسب
+          </small>
+
         </div>
 
         <div></div>
@@ -2117,24 +3519,32 @@ async function showRideOffers(rideId) {
     </div>
   `;
 
-  $("backRidesBtn").addEventListener(
-    "click",
-    showCustomerRides
-  );
+  $("backRidesBtn")
+    .addEventListener(
+      "click",
+      showCustomerRides
+    );
 
   await loadOffers(
     rideId
   );
 }
 
-async function loadOffers(rideId) {
+async function loadOffers(
+  rideId
+) {
+
   const container =
     $("offersList");
 
   try {
+
     const q =
       query(
-        collection(db, "offers"),
+        collection(
+          db,
+          "offers"
+        ),
         where(
           "rideId",
           "==",
@@ -2148,24 +3558,40 @@ async function loadOffers(rideId) {
 
     const offers =
       snapshot.docs
-        .map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data()
-        }))
+        .map(
+          (docSnap) => ({
+            id:
+              docSnap.id,
+            ...docSnap.data()
+          })
+        )
         .sort(
           (a, b) =>
-            Number(a.price || 0) -
-            Number(b.price || 0)
+            Number(
+              a.price || 0
+            ) -
+            Number(
+              b.price || 0
+            )
         );
 
     if (!offers.length) {
+
       container.innerHTML = `
         <div class="empty-state">
-          <div>🚕</div>
-          <h3>لسه مفيش عروض</h3>
+
+          <div>
+            🚕
+          </div>
+
+          <h3>
+            لسه مفيش عروض
+          </h3>
+
           <p>
             استنى شوية، الكباتن هتشوف طلبك.
           </p>
+
         </div>
       `;
 
@@ -2176,6 +3602,7 @@ async function loadOffers(rideId) {
       offers
         .map(
           (offer) => `
+
             <div class="offer-card">
 
               <div class="offer-driver">
@@ -2189,7 +3616,7 @@ async function loadOffers(rideId) {
                   <strong>
                     ${escapeHtml(
                       offer.captainName ||
-                        "كابتن"
+                      "كابتن"
                     )}
                   </strong>
 
@@ -2201,6 +3628,7 @@ async function loadOffers(rideId) {
                           )
                         : "سيارة"
                     }
+
                     ${
                       offer.carModel
                         ? " - " +
@@ -2216,23 +3644,35 @@ async function loadOffers(rideId) {
               </div>
 
               <div class="offer-price">
+
                 ${money(
                   offer.price
                 )}
-                <small>جنيه</small>
+
+                <small>
+                  جنيه
+                </small>
+
               </div>
 
               ${
                 offer.status ===
                 "accepted"
+
                   ? `
-                    <div class="accepted-label">
+                    <div
+                      class="accepted-label"
+                    >
                       تم قبول العرض
                     </div>
                   `
+
                   : `
                     <button
-                      class="primary-btn accept-offer-btn"
+                      class="
+                        primary-btn
+                        accept-offer-btn
+                      "
                       data-offer="${offer.id}"
                       data-ride="${rideId}"
                     >
@@ -2252,18 +3692,22 @@ async function loadOffers(rideId) {
       )
       .forEach(
         (button) => {
+
           button.addEventListener(
             "click",
             () =>
               acceptOffer(
-                button.dataset.offer,
-                button.dataset.ride
+                button.dataset
+                  .offer,
+                button.dataset
+                  .ride
               )
           );
         }
       );
 
   } catch (error) {
+
     console.error(error);
 
     container.innerHTML = `
@@ -2278,6 +3722,7 @@ async function acceptOffer(
   offerId,
   rideId
 ) {
+
   if (
     !confirm(
       "هل أنت متأكد من قبول العرض؟"
@@ -2287,6 +3732,7 @@ async function acceptOffer(
   }
 
   try {
+
     const offerRef =
       doc(
         db,
@@ -2302,9 +3748,12 @@ async function acceptOffer(
       );
 
     const offerSnap =
-      await getDoc(offerRef);
+      await getDoc(
+        offerRef
+      );
 
     if (!offerSnap.exists()) {
+
       showMessage(
         "العرض غير موجود",
         "error"
@@ -2319,33 +3768,42 @@ async function acceptOffer(
     await updateDoc(
       offerRef,
       {
-        status: "accepted"
+        status:
+          "accepted"
       }
     );
 
     await updateDoc(
       rideRef,
       {
-        status: "accepted",
+        status:
+          "accepted",
+
         acceptedOfferId:
           offerId,
+
         captainId:
           offer.captainId,
+
         captainName:
           offer.captainName,
+
         finalPrice:
-          Number(offer.price)
+          Number(
+            offer.price
+          )
       }
     );
 
     showMessage(
-      "تم قبول العرض بنجاح",
+      "تم قبول العرض بنجاح 🎉",
       "success"
     );
 
     showCustomerRides();
 
   } catch (error) {
+
     console.error(error);
 
     showMessage(
@@ -2360,16 +3818,22 @@ async function acceptOffer(
 ====================================================== */
 
 function showCaptainRides() {
+
   appRoot().innerHTML = `
     <div class="app-shell">
 
       <header class="top-header">
 
         <div>
-          <h2>الرحلات المتاحة</h2>
+
+          <h2>
+            الرحلات المتاحة
+          </h2>
+
           <small>
             اختار الرحلة واعرض سعرك
           </small>
+
         </div>
 
         <button
@@ -2399,14 +3863,18 @@ function showCaptainRides() {
           id="homeNav"
         >
           🏠
-          <span>الرئيسية</span>
+          <span>
+            الرئيسية
+          </span>
         </button>
 
         <button
           class="nav-btn active"
         >
           🚕
-          <span>الرحلات</span>
+          <span>
+            الرحلات
+          </span>
         </button>
 
         <button
@@ -2414,7 +3882,9 @@ function showCaptainRides() {
           id="profileNav"
         >
           👤
-          <span>حسابي</span>
+          <span>
+            بياناتي
+          </span>
         </button>
 
       </nav>
@@ -2422,39 +3892,42 @@ function showCaptainRides() {
     </div>
   `;
 
-  $("homeNav").addEventListener(
-    "click",
-    showHome
-  );
+  $("homeNav")
+    .addEventListener(
+      "click",
+      showHome
+    );
 
-  $("profileNav").addEventListener(
-    "click",
-    showProfile
-  );
+  $("profileNav")
+    .addEventListener(
+      "click",
+      showProfile
+    );
 
-  $("refreshRidesBtn").addEventListener(
-    "click",
-    loadCaptainRides
-  );
+  $("refreshRidesBtn")
+    .addEventListener(
+      "click",
+      loadCaptainRides
+    );
 
   loadCaptainRides();
 }
 
 async function loadCaptainRides() {
+
   const container =
     $("captainRidesList");
 
   if (!container) return;
 
   try {
-    /*
-      Only where() is used here so Firebase doesn't
-      require a composite index.
-    */
 
     const q =
       query(
-        collection(db, "rides"),
+        collection(
+          db,
+          "rides"
+        ),
         where(
           "status",
           "==",
@@ -2468,10 +3941,13 @@ async function loadCaptainRides() {
 
     const rides =
       snapshot.docs
-        .map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data()
-        }))
+        .map(
+          (docSnap) => ({
+            id:
+              docSnap.id,
+            ...docSnap.data()
+          })
+        )
         .sort(
           (a, b) =>
             timestampValue(
@@ -2483,10 +3959,13 @@ async function loadCaptainRides() {
         );
 
     if (!rides.length) {
+
       container.innerHTML = `
         <div class="empty-state">
 
-          <div>🚕</div>
+          <div>
+            🚕
+          </div>
 
           <h3>
             مفيش رحلات متاحة دلوقتي
@@ -2518,17 +3997,20 @@ async function loadCaptainRides() {
       )
       .forEach(
         (button) => {
+
           button.addEventListener(
             "click",
             () =>
               showOfferForm(
-                button.dataset.ride
+                button.dataset
+                  .ride
               )
           );
         }
       );
 
   } catch (error) {
+
     console.error(error);
 
     container.innerHTML = `
@@ -2539,7 +4021,10 @@ async function loadCaptainRides() {
   }
 }
 
-function captainRideCard(ride) {
+function captainRideCard(
+  ride
+) {
+
   return `
     <div class="ride-card">
 
@@ -2560,12 +4045,14 @@ function captainRideCard(ride) {
 
       <div class="ride-location">
 
-        <b>📍</b>
+        <b>
+          📍
+        </b>
 
         <span>
           ${escapeHtml(
             ride.pickup?.address ||
-              "مكان الانطلاق"
+            "مكان الانطلاق"
           )}
         </span>
 
@@ -2573,12 +4060,14 @@ function captainRideCard(ride) {
 
       <div class="ride-location">
 
-        <b>🏁</b>
+        <b>
+          🏁
+        </b>
 
         <span>
           ${escapeHtml(
             ride.destination?.address ||
-              "مكان النزول"
+            "مكان النزول"
           )}
         </span>
 
@@ -2587,14 +4076,16 @@ function captainRideCard(ride) {
       <div class="ride-meta">
 
         <span>
-          👥 ${ride.passengers || 1}
+          👥
+          ${ride.passengers || 1}
         </span>
 
         ${
           ride.notes
             ? `
               <span>
-                📝 ${escapeHtml(
+                📝
+                ${escapeHtml(
                   ride.notes
                 )}
               </span>
@@ -2605,7 +4096,10 @@ function captainRideCard(ride) {
       </div>
 
       <button
-        class="primary-btn make-offer-btn"
+        class="
+          primary-btn
+          make-offer-btn
+        "
         data-ride="${ride.id}"
       >
         💰 اعرض سعرك
@@ -2622,6 +4116,7 @@ function captainRideCard(ride) {
 async function showOfferForm(
   rideId
 ) {
+
   const rideRef =
     doc(
       db,
@@ -2630,9 +4125,12 @@ async function showOfferForm(
     );
 
   const rideSnap =
-    await getDoc(rideRef);
+    await getDoc(
+      rideRef
+    );
 
   if (!rideSnap.exists()) {
+
     showMessage(
       "الرحلة لم تعد موجودة",
       "error"
@@ -2657,8 +4155,15 @@ async function showOfferForm(
         </button>
 
         <div>
-          <h2>تقديم عرض</h2>
-          <small>اعرض السعر المناسب ليك</small>
+
+          <h2>
+            تقديم عرض
+          </h2>
+
+          <small>
+            اعرض السعر المناسب ليك
+          </small>
+
         </div>
 
         <div></div>
@@ -2689,7 +4194,7 @@ async function showOfferForm(
             <span>
               ${escapeHtml(
                 ride.pickup?.address ||
-                  ""
+                ""
               )}
             </span>
           </div>
@@ -2699,7 +4204,7 @@ async function showOfferForm(
             <span>
               ${escapeHtml(
                 ride.destination?.address ||
-                  ""
+                ""
               )}
             </span>
           </div>
@@ -2707,14 +4212,16 @@ async function showOfferForm(
           <div class="ride-meta">
 
             <span>
-              👥 ${ride.passengers || 1}
+              👥
+              ${ride.passengers || 1}
             </span>
 
             ${
               ride.notes
                 ? `
                   <span>
-                    📝 ${escapeHtml(
+                    📝
+                    ${escapeHtml(
                       ride.notes
                     )}
                   </span>
@@ -2738,11 +4245,15 @@ async function showOfferForm(
               id="offerPrice"
               type="number"
               min="1"
-              value="${ride.price || ""}"
+              value="${
+                ride.price || ""
+              }"
               placeholder="اكتب السعر"
             />
 
-            <span>جنيه</span>
+            <span>
+              جنيه
+            </span>
 
           </div>
 
@@ -2777,24 +4288,34 @@ async function showOfferForm(
 async function sendOffer(
   rideId
 ) {
+
   const price =
     Number(
-      $("offerPrice").value
+      $("offerPrice")
+        .value
     );
 
-  if (!price || price <= 0) {
+  if (
+    !price ||
+    price <= 0
+  ) {
+
     showMessage(
       "اكتب السعر",
-      "error"
+      "warning"
     );
 
     return;
   }
 
   try {
+
     const existingQuery =
       query(
-        collection(db, "offers"),
+        collection(
+          db,
+          "offers"
+        ),
         where(
           "rideId",
           "==",
@@ -2814,37 +4335,47 @@ async function sendOffer(
       );
 
     if (!existing.empty) {
+
       showMessage(
         "أنت قدمت عرض للرحلة دي بالفعل",
-        "error"
+        "warning"
       );
 
       return;
     }
 
     await addDoc(
-      collection(db, "offers"),
+      collection(
+        db,
+        "offers"
+      ),
       {
+
         rideId,
 
         captainId:
           currentUser.uid,
 
         captainName:
-          currentProfile.name || "",
+          currentProfile.name ||
+          "",
 
         carType:
-          currentProfile.carType || "",
+          currentProfile.carType ||
+          "",
 
         carModel:
-          currentProfile.carModel || "",
+          currentProfile.carModel ||
+          "",
 
         plateNumber:
-          currentProfile.plateNumber || "",
+          currentProfile.plateNumber ||
+          "",
 
         price,
 
-        status: "pending",
+        status:
+          "pending",
 
         createdAt:
           serverTimestamp()
@@ -2852,13 +4383,14 @@ async function sendOffer(
     );
 
     showMessage(
-      "تم إرسال العرض للعميل",
+      "تم إرسال العرض للعميل 🎉",
       "success"
     );
 
     showCaptainRides();
 
   } catch (error) {
+
     console.error(error);
 
     showMessage(
@@ -2869,13 +4401,18 @@ async function sendOffer(
 }
 
 /* ======================================================
-   PROFILE
+   PERSONAL DATA PAGE
 ====================================================== */
 
 function showProfile() {
+
+  ensureValidMode();
+
+  const roles =
+    getRoles();
+
   const isCaptain =
-    currentProfile.type ===
-    "captain";
+    roles.includes("captain");
 
   appRoot().innerHTML = `
     <div class="app-shell">
@@ -2883,8 +4420,15 @@ function showProfile() {
       <header class="top-header">
 
         <div>
-          <h2>حسابي</h2>
-          <small>بيانات الحساب</small>
+
+          <h2>
+            بياناتك الشخصية
+          </h2>
+
+          <small>
+            كل بيانات حسابك محفوظة هنا
+          </small>
+
         </div>
 
         <button
@@ -2898,7 +4442,7 @@ function showProfile() {
 
       <main class="content-page">
 
-        <div class="profile-card">
+        <div class="personal-profile-card">
 
           <div class="profile-avatar">
             👤
@@ -2907,95 +4451,302 @@ function showProfile() {
           <h2>
             ${escapeHtml(
               currentProfile.name ||
-                ""
+              ""
             )}
           </h2>
 
-          <span class="account-type-label">
-            ${
-              isCaptain
-                ? "كابتن"
-                : "عميل"
-            }
-          </span>
+          <div class="account-number-box">
 
-          <div class="profile-data">
+            <span>
+              رقم حسابك
+            </span>
 
-            <div>
-              <span>رقم الموبايل</span>
-              <strong>
-                ${escapeHtml(
-                  currentProfile.phone ||
-                    ""
-                )}
-              </strong>
+            <strong>
+              ${escapeHtml(
+                currentProfile.accountNumber ||
+                "-"
+              )}
+            </strong>
+
+          </div>
+
+          <div class="personal-section">
+
+            <div class="section-title">
+              👤 البيانات الأساسية
             </div>
 
-            <div>
-              <span>رقم الحساب</span>
-              <strong>
-                ${escapeHtml(
-                  currentProfile.accountNumber ||
-                    ""
-                )}
-              </strong>
+            <div class="profile-data">
+
+              <div>
+                <span>
+                  الاسم
+                </span>
+
+                <strong>
+                  ${escapeHtml(
+                    currentProfile.name ||
+                    "-"
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  رقم الموبايل
+                </span>
+
+                <strong
+                  dir="ltr"
+                >
+                  ${escapeHtml(
+                    currentProfile.phone ||
+                    "-"
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  رقم الحساب
+                </span>
+
+                <strong>
+                  ${escapeHtml(
+                    currentProfile.accountNumber ||
+                    "-"
+                  )}
+                </strong>
+              </div>
+
             </div>
 
-            ${
-              isCaptain
-                ? `
-                  <div>
-                    <span>السن</span>
-                    <strong>
-                      ${
-                        currentProfile.age ||
-                        "-"
-                      }
-                    </strong>
+          </div>
+
+          <div class="role-box">
+
+            <div class="section-title">
+              🔄 أوضاع الحساب
+            </div>
+
+            <div class="role-status">
+
+              <div
+                class="
+                  role-status-item
+                  ${
+                    roles.includes(
+                      "customer"
+                    )
+                      ? "enabled"
+                      : ""
+                  }
+                "
+              >
+                <span>
+                  👤
+                </span>
+
+                <div>
+
+                  <strong>
+                    وضع العميل
+                  </strong>
+
+                  <small>
+                    ${
+                      roles.includes(
+                        "customer"
+                      )
+                        ? "مفعل"
+                        : "غير مفعل"
+                    }
+                  </small>
+
+                </div>
+
+              </div>
+
+              <div
+                class="
+                  role-status-item
+                  ${
+                    isCaptain
+                      ? "enabled"
+                      : ""
+                  }
+                "
+              >
+                <span>
+                  🚕
+                </span>
+
+                <div>
+
+                  <strong>
+                    وضع الكابتن
+                  </strong>
+
+                  <small>
+                    ${
+                      isCaptain
+                        ? "مفعل"
+                        : "غير مفعل"
+                    }
+                  </small>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          ${
+            isCaptain
+              ? `
+                <div class="personal-section">
+
+                  <div class="section-title">
+                    🚕 بيانات الكابتن
                   </div>
 
-                  <div>
-                    <span>نوع العربية</span>
-                    <strong>
-                      ${escapeHtml(
-                        currentProfile.carType ||
+                  <div class="profile-data">
+
+                    <div>
+                      <span>
+                        السن
+                      </span>
+
+                      <strong>
+                        ${
+                          currentProfile.age ||
                           "-"
-                      )}
-                    </strong>
-                  </div>
+                        }
+                      </strong>
+                    </div>
 
-                  <div>
-                    <span>موديل العربية</span>
-                    <strong>
-                      ${escapeHtml(
-                        currentProfile.carModel ||
+                    <div>
+                      <span>
+                        نوع العربية
+                      </span>
+
+                      <strong>
+                        ${escapeHtml(
+                          currentProfile.carType ||
                           "-"
-                      )}
-                    </strong>
-                  </div>
+                        )}
+                      </strong>
+                    </div>
 
-                  <div>
-                    <span>رقم اللوحة</span>
-                    <strong>
-                      ${escapeHtml(
-                        currentProfile.plateNumber ||
+                    <div>
+                      <span>
+                        موديل العربية
+                      </span>
+
+                      <strong>
+                        ${escapeHtml(
+                          currentProfile.carModel ||
                           "-"
-                      )}
-                    </strong>
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        رقم اللوحة
+                      </span>
+
+                      <strong>
+                        ${escapeHtml(
+                          currentProfile.plateNumber ||
+                          "-"
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        التقييم
+                      </span>
+
+                      <strong>
+                        ⭐ ${
+                          currentProfile.rating ||
+                          5
+                        }
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>
+                        عدد الرحلات
+                      </span>
+
+                      <strong>
+                        ${
+                          currentProfile.totalRides ||
+                          0
+                        }
+                      </strong>
+                    </div>
+
+                  </div>
+
+                  <button
+                    id="editCaptainBtn"
+                    class="secondary-btn"
+                  >
+                    ✏️ تعديل بيانات الكابتن
+                  </button>
+
+                </div>
+              `
+              : `
+                <button
+                  id="activateCaptainFromProfile"
+                  class="captain-activate-card"
+                >
+
+                  <div class="activate-icon">
+                    🚕
                   </div>
 
                   <div>
-                    <span>التقييم</span>
+
                     <strong>
-                      ⭐ ${
-                        currentProfile.rating ||
-                        5
-                      }
+                      عايز تبقى كابتن؟
                     </strong>
+
+                    <span>
+                      فعل وضع الكابتن على نفس حسابك
+                    </span>
+
                   </div>
-                `
-                : ""
-            }
+
+                  <b>
+                    ←
+                  </b>
+
+                </button>
+              `
+          }
+
+          <div class="current-mode-box">
+
+            <span>
+              الوضع الحالي
+            </span>
+
+            <strong>
+              ${
+                currentMode ===
+                "captain"
+                  ? "🚕 كابتن"
+                  : "👤 عميل"
+              }
+            </strong>
 
           </div>
 
@@ -3017,18 +4768,23 @@ function showProfile() {
           id="homeNav"
         >
           🏠
-          <span>الرئيسية</span>
+          <span>
+            الرئيسية
+          </span>
         </button>
 
         ${
-          isCaptain
+          currentMode ===
+          "captain"
             ? `
               <button
                 class="nav-btn"
                 id="ridesNav"
               >
                 🚕
-                <span>الرحلات</span>
+                <span>
+                  الرحلات
+                </span>
               </button>
             `
             : `
@@ -3037,7 +4793,9 @@ function showProfile() {
                 id="myRidesNav"
               >
                 📋
-                <span>رحلاتي</span>
+                <span>
+                  رحلاتي
+                </span>
               </button>
             `
         }
@@ -3046,7 +4804,9 @@ function showProfile() {
           class="nav-btn active"
         >
           👤
-          <span>حسابي</span>
+          <span>
+            بياناتي
+          </span>
         </button>
 
       </nav>
@@ -3054,47 +4814,352 @@ function showProfile() {
     </div>
   `;
 
-  $("homeBtn").addEventListener(
-    "click",
-    showHome
-  );
+  $("homeBtn")
+    .addEventListener(
+      "click",
+      showHome
+    );
 
-  $("homeNav").addEventListener(
-    "click",
-    showHome
-  );
+  $("homeNav")
+    .addEventListener(
+      "click",
+      showHome
+    );
 
-  $("logoutBtn").addEventListener(
-    "click",
-    async () => {
-      try {
-        await signOut(auth);
-
-        currentUser = null;
-        currentProfile = null;
-
-        showLogin();
-
-      } catch (error) {
-        console.error(error);
-
-        showMessage(
-          "تعذر تسجيل الخروج",
-          "error"
-        );
-      }
-    }
-  );
+  $("logoutBtn")
+    .addEventListener(
+      "click",
+      logoutUser
+    );
 
   if (isCaptain) {
-    $("ridesNav").addEventListener(
-      "click",
-      showCaptainRides
-    );
+
+    $("ridesNav")
+      .addEventListener(
+        "click",
+        showCaptainRides
+      );
+
+    $("editCaptainBtn")
+      .addEventListener(
+        "click",
+        showEditCaptain
+      );
+
   } else {
-    $("myRidesNav").addEventListener(
+
+    $("myRidesNav")
+      .addEventListener(
+        "click",
+        showCustomerRides
+      );
+
+    $("activateCaptainFromProfile")
+      ?.addEventListener(
+        "click",
+        showCaptainActivation
+      );
+  }
+}
+
+/* ======================================================
+   EDIT CAPTAIN DATA
+====================================================== */
+
+function showEditCaptain() {
+
+  appRoot().innerHTML = `
+    <div class="app-shell">
+
+      <header class="top-header">
+
+        <button
+          id="backPersonalBtn"
+          class="back-btn"
+        >
+          ← رجوع
+        </button>
+
+        <div>
+
+          <h2>
+            تعديل بيانات الكابتن
+          </h2>
+
+          <small>
+            بيانات العربية
+          </small>
+
+        </div>
+
+        <div></div>
+
+      </header>
+
+      <main class="content-page">
+
+        <div class="profile-card">
+
+          <div class="ride-details">
+
+            <label>
+              السن
+            </label>
+
+            <input
+              id="editCaptainAge"
+              type="number"
+              min="18"
+              max="80"
+              value="${
+                currentProfile.age ||
+                ""
+              }"
+            />
+
+            <label>
+              نوع العربية
+            </label>
+
+            <select
+              id="editCaptainCarType"
+            >
+
+              <option value="">
+                اختر نوع العربية
+              </option>
+
+              <option value="ملاكي">
+                ملاكي
+              </option>
+
+              <option value="ميكروباص">
+                ميكروباص
+              </option>
+
+              <option value="نقل">
+                نقل
+              </option>
+
+              <option value="نصف نقل">
+                نصف نقل
+              </option>
+
+              <option value="دبابة">
+                دبابة
+              </option>
+
+            </select>
+
+            <label>
+              موديل العربية
+            </label>
+
+            <input
+              id="editCaptainCarModel"
+              type="text"
+              value="${escapeHtml(
+                currentProfile.carModel ||
+                ""
+              )}"
+            />
+
+            <label>
+              رقم اللوحة
+            </label>
+
+            <input
+              id="editCaptainPlate"
+              type="text"
+              value="${escapeHtml(
+                currentProfile.plateNumber ||
+                ""
+              )}"
+            />
+
+            <button
+              id="saveCaptainBtn"
+              class="primary-btn"
+            >
+              حفظ البيانات
+            </button>
+
+          </div>
+
+        </div>
+
+      </main>
+
+    </div>
+  `;
+
+  $("editCaptainCarType")
+    .value =
+    currentProfile.carType ||
+    "";
+
+  $("backPersonalBtn")
+    .addEventListener(
       "click",
-      showCustomerRides
+      showProfile
+    );
+
+  $("saveCaptainBtn")
+    .addEventListener(
+      "click",
+      saveCaptainData
+    );
+}
+
+async function saveCaptainData() {
+
+  const age =
+    Number(
+      $("editCaptainAge")
+        .value
+    );
+
+  const carType =
+    $("editCaptainCarType")
+      .value;
+
+  const carModel =
+    $("editCaptainCarModel")
+      .value
+      .trim();
+
+  const plateNumber =
+    $("editCaptainPlate")
+      .value
+      .trim();
+
+  if (!age || age < 18) {
+
+    showMessage(
+      "السن لازم يكون 18 سنة أو أكثر",
+      "warning"
+    );
+
+    return;
+  }
+
+  if (!carType) {
+
+    showMessage(
+      "اختار نوع العربية",
+      "warning"
+    );
+
+    return;
+  }
+
+  if (!carModel) {
+
+    showMessage(
+      "اكتب موديل العربية",
+      "warning"
+    );
+
+    return;
+  }
+
+  if (!plateNumber) {
+
+    showMessage(
+      "اكتب رقم اللوحة",
+      "warning"
+    );
+
+    return;
+  }
+
+  const button =
+    $("saveCaptainBtn");
+
+  try {
+
+    setLoading(
+      button,
+      true,
+      "جاري الحفظ..."
+    );
+
+    await updateDoc(
+      doc(
+        db,
+        "users",
+        currentUser.uid
+      ),
+      {
+
+        age,
+
+        carType,
+
+        carModel,
+
+        plateNumber
+      }
+    );
+
+    currentProfile.age =
+      age;
+
+    currentProfile.carType =
+      carType;
+
+    currentProfile.carModel =
+      carModel;
+
+    currentProfile.plateNumber =
+      plateNumber;
+
+    showMessage(
+      "تم حفظ بياناتك الشخصية بنجاح ✓",
+      "success"
+    );
+
+    showProfile();
+
+  } catch (error) {
+
+    console.error(error);
+
+    showMessage(
+      "تعذر حفظ البيانات",
+      "error"
+    );
+
+    setLoading(
+      button,
+      false
+    );
+  }
+}
+
+/* ======================================================
+   LOGOUT
+====================================================== */
+
+async function logoutUser() {
+
+  try {
+
+    await signOut(auth);
+
+    currentUser = null;
+    currentProfile = null;
+    currentMode = "customer";
+
+    showLogin();
+
+  } catch (error) {
+
+    console.error(error);
+
+    showMessage(
+      "تعذر تسجيل الخروج",
+      "error"
     );
   }
 }
@@ -3114,19 +5179,25 @@ dynamicStyle.textContent = `
 
 body {
   margin: 0;
+
   font-family:
     Arial,
     Tahoma,
     sans-serif;
-  background: #f5f7fa;
-  color: #18212f;
+
+  background:
+    #f5f7fa;
+
+  color:
+    #18212f;
 }
 
 button,
 input,
 textarea,
 select {
-  font-family: inherit;
+  font-family:
+    inherit;
 }
 
 button {
@@ -3134,11 +5205,21 @@ button {
 }
 
 .auth-page {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
+  min-height:
+    100vh;
+
+  display:
+    flex;
+
+  justify-content:
+    center;
+
+  align-items:
+    center;
+
+  padding:
+    20px;
+
   background:
     linear-gradient(
       145deg,
@@ -3148,203 +5229,457 @@ button {
 }
 
 .auth-card {
-  width: 100%;
-  max-width: 430px;
-  background: white;
-  border-radius: 24px;
-  padding: 25px;
+  width:
+    100%;
+
+  max-width:
+    430px;
+
+  background:
+    white;
+
+  border-radius:
+    24px;
+
+  padding:
+    25px;
+
   box-shadow:
-    0 15px 45px rgba(
+    0 15px 45px
+    rgba(
       0,
       0,
       0,
-      0.09
+      .09
     );
 }
 
 .register-card {
-  max-height: 95vh;
-  overflow-y: auto;
+  max-height:
+    95vh;
+
+  overflow-y:
+    auto;
 }
 
 .logo-box {
-  text-align: center;
-  margin-bottom: 25px;
+  text-align:
+    center;
+
+  margin-bottom:
+    25px;
 }
 
 .logo-icon {
-  font-size: 52px;
-  margin-bottom: 5px;
+  font-size:
+    52px;
+
+  margin-bottom:
+    5px;
 }
 
 .logo-box h1 {
-  margin: 0;
-  font-size: 28px;
+  margin:
+    0;
+
+  font-size:
+    28px;
 }
 
 .logo-box p {
-  color: #718096;
-  margin-top: 8px;
+  color:
+    #718096;
+
+  margin-top:
+    8px;
 }
 
 .auth-card label,
 .ride-details label {
-  display: block;
-  margin: 13px 0 7px;
-  font-weight: bold;
+  display:
+    block;
+
+  margin:
+    13px 0 7px;
+
+  font-weight:
+    bold;
 }
 
 .auth-card input,
 .auth-card select,
 .ride-details input,
-.ride-details textarea {
-  width: 100%;
-  padding: 14px;
-  border: 1px solid #dce2ea;
-  border-radius: 12px;
-  background: #fff;
-  outline: none;
-  font-size: 15px;
+.ride-details textarea,
+.ride-details select {
+  width:
+    100%;
+
+  padding:
+    14px;
+
+  border:
+    1px solid #dce2ea;
+
+  border-radius:
+    12px;
+
+  background:
+    #fff;
+
+  outline:
+    none;
+
+  font-size:
+    15px;
 }
 
 .auth-card input:focus,
 .auth-card select:focus,
 .ride-details input:focus,
-.ride-details textarea:focus {
-  border-color: #0878df;
+.ride-details textarea:focus,
+.ride-details select:focus {
+  border-color:
+    #0878df;
+
   box-shadow:
-    0 0 0 3px rgba(
+    0 0 0 3px
+    rgba(
       8,
       120,
       223,
-      0.1
+      .1
     );
 }
 
 .primary-btn,
 .secondary-btn,
 .danger-btn {
-  width: 100%;
-  border: 0;
-  border-radius: 13px;
-  padding: 14px;
-  font-size: 16px;
-  font-weight: bold;
-  margin-top: 15px;
+  width:
+    100%;
+
+  border:
+    0;
+
+  border-radius:
+    13px;
+
+  padding:
+    14px;
+
+  font-size:
+    16px;
+
+  font-weight:
+    bold;
+
+  margin-top:
+    15px;
 }
 
 .primary-btn {
-  background: #0878df;
-  color: white;
+  background:
+    #0878df;
+
+  color:
+    white;
 }
 
 .primary-btn:disabled {
-  opacity: .6;
+  opacity:
+    .6;
 }
 
 .secondary-btn {
-  background: #edf5ff;
-  color: #0878df;
+  background:
+    #edf5ff;
+
+  color:
+    #0878df;
 }
 
 .danger-btn {
-  background: #fff0f0;
-  color: #d22;
+  background:
+    #fff0f0;
+
+  color:
+    #d22;
 }
 
 .separator {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 18px 0;
-  color: #888;
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    10px;
+
+  margin:
+    18px 0;
+
+  color:
+    #888;
 }
 
 .separator::before,
 .separator::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #ddd;
+  content:
+    "";
+
+  flex:
+    1;
+
+  height:
+    1px;
+
+  background:
+    #ddd;
 }
 
 .account-type {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 15px;
+  display:
+    grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap:
+    10px;
+
+  margin-bottom:
+    12px;
 }
 
 .type-btn {
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 13px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
-  font-size: 15px;
+  border:
+    1px solid #ddd;
+
+  background:
+    white;
+
+  border-radius:
+    13px;
+
+  padding:
+    14px;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    6px;
+
+  align-items:
+    center;
+
+  font-size:
+    15px;
 }
 
 .type-btn.active {
-  border-color: #0878df;
-  background: #edf5ff;
-  color: #0878df;
+  border-color:
+    #0878df;
+
+  background:
+    #edf5ff;
+
+  color:
+    #0878df;
+}
+
+.mode-help {
+  background:
+    #f4f8fd;
+
+  border-radius:
+    12px;
+
+  padding:
+    11px;
+
+  color:
+    #64748b;
+
+  font-size:
+    12px;
+
+  line-height:
+    1.7;
+
+  margin-bottom:
+    10px;
+
+  text-align:
+    center;
 }
 
 .back-btn {
-  border: 0;
-  background: transparent;
-  font-size: 16px;
-  color: #0878df;
-  padding: 4px;
+  border:
+    0;
+
+  background:
+    transparent;
+
+  font-size:
+    16px;
+
+  color:
+    #0878df;
+
+  padding:
+    4px;
 }
 
 .app-shell {
-  min-height: 100vh;
-  padding-bottom: 75px;
+  min-height:
+    100vh;
+
+  padding-bottom:
+    75px;
 }
 
 .top-header {
-  min-height: 70px;
-  background: white;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid #edf0f4;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+  min-height:
+    70px;
+
+  background:
+    white;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    space-between;
+
+  padding:
+    12px 16px;
+
+  border-bottom:
+    1px solid #edf0f4;
+
+  position:
+    sticky;
+
+  top:
+    0;
+
+  z-index:
+    1000;
 }
 
 .top-header h2 {
-  margin: 0;
-  font-size: 20px;
+  margin:
+    0;
+
+  font-size:
+    20px;
 }
 
 .top-header small {
-  display: block;
-  color: #777;
-  margin-top: 3px;
+  display:
+    block;
+
+  color:
+    #777;
+
+  margin-top:
+    3px;
 }
 
 .icon-btn {
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 12px;
-  background: #edf5ff;
-  font-size: 20px;
+  width:
+    44px;
+
+  height:
+    44px;
+
+  border:
+    0;
+
+  border-radius:
+    12px;
+
+  background:
+    #edf5ff;
+
+  font-size:
+    20px;
+}
+
+.mode-switch {
+  display:
+    grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap:
+    8px;
+
+  padding:
+    10px 14px;
+
+  background:
+    white;
+
+  border-bottom:
+    1px solid #edf0f4;
+}
+
+.mode-switch-btn {
+  border:
+    1px solid #dce2ea;
+
+  background:
+    #f8fafc;
+
+  color:
+    #667085;
+
+  border-radius:
+    12px;
+
+  padding:
+    10px;
+
+  font-weight:
+    bold;
+}
+
+.mode-switch-btn.active {
+  background:
+    #0878df;
+
+  border-color:
+    #0878df;
+
+  color:
+    white;
+}
+
+.mode-switch-btn.disabled {
+  opacity:
+    .55;
 }
 
 .home-section,
 .content-page,
 .ride-page {
-  padding: 16px;
-  max-width: 700px;
-  margin: auto;
+  padding:
+    16px;
+
+  max-width:
+    700px;
+
+  margin:
+    auto;
 }
 
 .welcome-card {
@@ -3354,92 +5689,177 @@ button {
       #0878df,
       #35a2ff
     );
-  color: white;
-  border-radius: 22px;
-  padding: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+
+  color:
+    white;
+
+  border-radius:
+    22px;
+
+  padding:
+    20px;
+
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  align-items:
+    center;
+
+  margin-bottom:
+    16px;
 }
 
 .welcome-card h3 {
-  margin: 0 0 8px;
-  font-size: 21px;
+  margin:
+    0 0 8px;
+
+  font-size:
+    21px;
 }
 
 .welcome-card p {
-  margin: 0;
-  opacity: .9;
-  line-height: 1.7;
+  margin:
+    0;
+
+  opacity:
+    .9;
+
+  line-height:
+    1.7;
 }
 
 .big-car {
-  font-size: 55px;
+  font-size:
+    55px;
 }
 
 .request-ride-card {
-  width: 100%;
-  border: 0;
-  background: white;
-  border-radius: 18px;
-  padding: 18px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  text-align: right;
+  width:
+    100%;
+
+  border:
+    0;
+
+  background:
+    white;
+
+  border-radius:
+    18px;
+
+  padding:
+    18px;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    15px;
+
+  text-align:
+    right;
+
   box-shadow:
-    0 6px 20px rgba(
+    0 6px 20px
+    rgba(
       0,
       0,
       0,
-      0.06
+      .06
     );
 }
 
 .request-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 15px;
-  background: #edf5ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 25px;
+  width:
+    52px;
+
+  height:
+    52px;
+
+  border-radius:
+    15px;
+
+  background:
+    #edf5ff;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  font-size:
+    25px;
 }
 
 .request-ride-card strong {
-  display: block;
-  font-size: 18px;
+  display:
+    block;
+
+  font-size:
+    18px;
 }
 
 .request-ride-card span {
-  display: block;
-  color: #777;
-  margin-top: 5px;
+  display:
+    block;
+
+  color:
+    #777;
+
+  margin-top:
+    5px;
 }
 
 .request-ride-card .arrow {
-  margin-right: auto;
-  font-size: 22px;
-  color: #0878df;
+  margin-right:
+    auto;
+
+  font-size:
+    22px;
+
+  color:
+    #0878df;
 }
 
 .info-grid {
-  display: grid;
+  display:
+    grid;
+
   grid-template-columns:
     repeat(3, 1fr);
-  gap: 10px;
-  margin-top: 16px;
+
+  gap:
+    10px;
+
+  margin-top:
+    16px;
 }
 
 .info-card {
-  background: white;
-  border-radius: 15px;
-  padding: 14px 8px;
-  text-align: center;
+  background:
+    white;
+
+  border-radius:
+    15px;
+
+  padding:
+    14px 8px;
+
+  text-align:
+    center;
+
   box-shadow:
-    0 4px 15px rgba(
+    0 4px 15px
+    rgba(
       0,
       0,
       0,
@@ -3448,60 +5868,116 @@ button {
 }
 
 .info-card b {
-  display: block;
-  font-size: 25px;
-  margin-bottom: 8px;
+  display:
+    block;
+
+  font-size:
+    25px;
+
+  margin-bottom:
+    8px;
 }
 
 .info-card span {
-  font-size: 12px;
-  color: #666;
+  font-size:
+    12px;
+
+  color:
+    #666;
 }
 
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 68px;
-  background: white;
-  border-top: 1px solid #e8ebef;
-  display: grid;
+  position:
+    fixed;
+
+  bottom:
+    0;
+
+  left:
+    0;
+
+  right:
+    0;
+
+  height:
+    68px;
+
+  background:
+    white;
+
+  border-top:
+    1px solid #e8ebef;
+
+  display:
+    grid;
+
   grid-template-columns:
     repeat(3, 1fr);
-  z-index: 2000;
-  padding-bottom: env(
-    safe-area-inset-bottom
-  );
+
+  z-index:
+    2000;
+
+  padding-bottom:
+    env(
+      safe-area-inset-bottom
+    );
 }
 
 .nav-btn {
-  border: 0;
-  background: white;
-  color: #8a929d;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+  border:
+    0;
+
+  background:
+    white;
+
+  color:
+    #8a929d;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  gap:
+    3px;
 }
 
 .nav-btn span {
-  font-size: 11px;
+  font-size:
+    11px;
 }
 
 .nav-btn.active {
-  color: #0878df;
-  font-weight: bold;
+  color:
+    #0878df;
+
+  font-weight:
+    bold;
 }
 
 .map-card {
-  background: white;
-  border-radius: 18px;
-  overflow: hidden;
-  position: relative;
+  background:
+    white;
+
+  border-radius:
+    18px;
+
+  overflow:
+    hidden;
+
+  position:
+    relative;
+
   box-shadow:
-    0 6px 20px rgba(
+    0 6px 20px
+    rgba(
       0,
       0,
       0,
@@ -3510,43 +5986,81 @@ button {
 }
 
 #map {
-  width: 100%;
-  height: 430px;
+  width:
+    100%;
+
+  height:
+    430px;
 }
 
 .map-controls {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 500;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
+  position:
+    absolute;
+
+  top:
+    12px;
+
+  left:
+    12px;
+
+  z-index:
+    500;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    7px;
 }
 
 .map-controls button {
-  width: 42px;
-  height: 42px;
-  border: 0;
-  border-radius: 11px;
-  background: white;
+  width:
+    42px;
+
+  height:
+    42px;
+
+  border:
+    0;
+
+  border-radius:
+    11px;
+
+  background:
+    white;
+
   box-shadow:
-    0 3px 12px rgba(
+    0 3px 12px
+    rgba(
       0,
       0,
       0,
       .15
     );
-  font-size: 20px;
+
+  font-size:
+    20px;
 }
 
 .location-fields {
-  background: white;
-  border-radius: 18px;
-  padding: 15px;
-  margin-top: 12px;
+  background:
+    white;
+
+  border-radius:
+    18px;
+
+  padding:
+    15px;
+
+  margin-top:
+    12px;
+
   box-shadow:
-    0 5px 18px rgba(
+    0 5px 18px
+    rgba(
       0,
       0,
       0,
@@ -3555,134 +6069,256 @@ button {
 }
 
 .location-input {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  display:
+    flex;
+
+  gap:
+    12px;
+
+  align-items:
+    flex-start;
 }
 
 .location-input label {
-  display: block;
-  font-size: 12px;
-  color: #777;
-  margin-bottom: 4px;
+  display:
+    block;
+
+  font-size:
+    12px;
+
+  color:
+    #777;
+
+  margin-bottom:
+    4px;
 }
 
 .location-value {
-  line-height: 1.5;
-  font-size: 14px;
+  line-height:
+    1.5;
+
+  font-size:
+    14px;
 }
 
 .location-dot {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  margin-top: 5px;
-  flex: none;
+  width:
+    13px;
+
+  height:
+    13px;
+
+  border-radius:
+    50%;
+
+  margin-top:
+    5px;
+
+  flex:
+    none;
 }
 
 .pickup-dot {
-  background: #0878df;
+  background:
+    #0878df;
 }
 
 .destination-dot {
-  background: #e53935;
+  background:
+    #e53935;
 }
 
 .location-line {
-  height: 25px;
-  width: 2px;
-  background: #ddd;
-  margin-right: 5px;
+  height:
+    25px;
+
+  width:
+    2px;
+
+  background:
+    #ddd;
+
+  margin-right:
+    5px;
 }
 
 .destination-search-wrapper {
-  width: 100%;
-  position: relative;
+  width:
+    100%;
+
+  position:
+    relative;
 }
 
 .destination-search-wrapper input {
-  width: 100%;
-  border: 0;
-  outline: 0;
-  padding: 4px 0;
-  font-size: 15px;
+  width:
+    100%;
+
+  border:
+    0;
+
+  outline:
+    0;
+
+  padding:
+    4px 0;
+
+  font-size:
+    15px;
 }
 
 .search-results {
-  position: absolute;
-  top: 55px;
-  right: 0;
-  left: 0;
-  background: white;
-  z-index: 1000;
-  border-radius: 12px;
+  position:
+    absolute;
+
+  top:
+    55px;
+
+  right:
+    0;
+
+  left:
+    0;
+
+  background:
+    white;
+
+  z-index:
+    1000;
+
+  border-radius:
+    12px;
+
   box-shadow:
-    0 8px 25px rgba(
+    0 8px 25px
+    rgba(
       0,
       0,
       0,
       .15
     );
-  overflow: hidden;
+
+  overflow:
+    hidden;
 }
 
 .search-result {
-  width: 100%;
-  border: 0;
-  border-bottom: 1px solid #eee;
-  background: white;
-  padding: 12px;
-  display: flex;
-  gap: 8px;
-  text-align: right;
-  line-height: 1.5;
+  width:
+    100%;
+
+  border:
+    0;
+
+  border-bottom:
+    1px solid #eee;
+
+  background:
+    white;
+
+  padding:
+    12px;
+
+  display:
+    flex;
+
+  gap:
+    8px;
+
+  text-align:
+    right;
+
+  line-height:
+    1.5;
 }
 
 .search-result:hover {
-  background: #f3f8ff;
+  background:
+    #f3f8ff;
 }
 
 .no-results {
-  padding: 15px;
-  color: #777;
+  padding:
+    15px;
+
+  color:
+    #777;
 }
 
 .coordinates-box {
-  background: #edf5ff;
-  border-radius: 14px;
-  padding: 12px;
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  background:
+    #edf5ff;
+
+  border-radius:
+    14px;
+
+  padding:
+    12px;
+
+  margin-top:
+    12px;
+
+  display:
+    grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap:
+    10px;
 }
 
 .coordinates-box div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    4px;
 }
 
 .coordinates-box span {
-  font-size: 11px;
-  color: #777;
+  font-size:
+    11px;
+
+  color:
+    #777;
 }
 
 .coordinates-box b {
-  direction: ltr;
-  font-size: 12px;
+  direction:
+    ltr;
+
+  font-size:
+    12px;
 }
 
 .route-info {
-  background: white;
-  border-radius: 14px;
-  padding: 13px;
-  margin-top: 12px;
-  display: flex;
-  justify-content: space-around;
-  text-align: center;
+  background:
+    white;
+
+  border-radius:
+    14px;
+
+  padding:
+    13px;
+
+  margin-top:
+    12px;
+
+  display:
+    flex;
+
+  justify-content:
+    space-around;
+
+  text-align:
+    center;
+
   box-shadow:
-    0 5px 18px rgba(
+    0 5px 18px
+    rgba(
       0,
       0,
       0,
@@ -3691,23 +6327,40 @@ button {
 }
 
 .route-info div {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    5px;
 }
 
 .route-info strong {
-  font-size: 12px;
-  color: #777;
+  font-size:
+    12px;
+
+  color:
+    #777;
 }
 
 .ride-details {
-  background: white;
-  border-radius: 18px;
-  padding: 17px;
-  margin-top: 12px;
+  background:
+    white;
+
+  border-radius:
+    18px;
+
+  padding:
+    17px;
+
+  margin-top:
+    12px;
+
   box-shadow:
-    0 5px 18px rgba(
+    0 5px 18px
+    rgba(
       0,
       0,
       0,
@@ -3716,42 +6369,68 @@ button {
 }
 
 .ride-details h3 {
-  margin-top: 0;
+  margin-top:
+    0;
 }
 
 .price-input {
-  position: relative;
+  position:
+    relative;
 }
 
 .price-input input {
-  padding-left: 65px !important;
+  padding-left:
+    65px !important;
 }
 
 .price-input span {
-  position: absolute;
-  left: 15px;
-  top: 50%;
+  position:
+    absolute;
+
+  left:
+    15px;
+
+  top:
+    50%;
+
   transform:
     translateY(-50%);
-  color: #777;
-  font-weight: bold;
+
+  color:
+    #777;
+
+  font-weight:
+    bold;
 }
 
 .rides-list,
 .offers-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    12px;
 }
 
 .ride-card,
 .offer-card,
-.profile-card {
-  background: white;
-  border-radius: 18px;
-  padding: 16px;
+.profile-card,
+.personal-profile-card {
+  background:
+    white;
+
+  border-radius:
+    18px;
+
+  padding:
+    16px;
+
   box-shadow:
-    0 5px 18px rgba(
+    0 5px 18px
+    rgba(
       0,
       0,
       0,
@@ -3760,220 +6439,873 @@ button {
 }
 
 .ride-card-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 13px;
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  gap:
+    10px;
+
+  align-items:
+    center;
+
+  margin-bottom:
+    13px;
 }
 
 .ride-price,
 .offer-price {
-  color: #0878df;
-  font-weight: bold;
+  color:
+    #0878df;
+
+  font-weight:
+    bold;
 }
 
 .ride-location {
-  display: flex;
-  gap: 9px;
-  margin: 10px 0;
-  line-height: 1.5;
-  font-size: 14px;
+  display:
+    flex;
+
+  gap:
+    9px;
+
+  margin:
+    10px 0;
+
+  line-height:
+    1.5;
+
+  font-size:
+    14px;
 }
 
 .ride-location b {
-  flex: none;
+  flex:
+    none;
 }
 
 .ride-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-  color: #666;
-  font-size: 13px;
+  display:
+    flex;
+
+  flex-wrap:
+    wrap;
+
+  gap:
+    8px;
+
+  margin-top:
+    12px;
+
+  color:
+    #666;
+
+  font-size:
+    13px;
 }
 
 .ride-meta span {
-  background: #f2f4f7;
-  padding: 7px 9px;
-  border-radius: 8px;
+  background:
+    #f2f4f7;
+
+  padding:
+    7px 9px;
+
+  border-radius:
+    8px;
 }
 
 .empty-state {
-  background: white;
-  border-radius: 18px;
-  padding: 35px 20px;
-  text-align: center;
-  color: #666;
+  background:
+    white;
+
+  border-radius:
+    18px;
+
+  padding:
+    35px 20px;
+
+  text-align:
+    center;
+
+  color:
+    #666;
 }
 
 .empty-state > div {
-  font-size: 50px;
-  margin-bottom: 10px;
+  font-size:
+    50px;
+
+  margin-bottom:
+    10px;
 }
 
 .empty-state h3 {
-  color: #222;
+  color:
+    #222;
 }
 
 .offer-driver {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    12px;
 }
 
 .driver-avatar,
 .profile-avatar {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: #edf5ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 25px;
+  width:
+    50px;
+
+  height:
+    50px;
+
+  border-radius:
+    50%;
+
+  background:
+    #edf5ff;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  font-size:
+    25px;
 }
 
 .offer-driver strong {
-  display: block;
+  display:
+    block;
 }
 
 .offer-driver span {
-  display: block;
-  color: #777;
-  font-size: 13px;
-  margin-top: 4px;
+  display:
+    block;
+
+  color:
+    #777;
+
+  font-size:
+    13px;
+
+  margin-top:
+    4px;
 }
 
 .offer-card {
-  display: grid;
+  display:
+    grid;
+
   grid-template-columns:
     1fr auto;
-  gap: 12px;
-  align-items: center;
+
+  gap:
+    12px;
+
+  align-items:
+    center;
 }
 
 .offer-card
 .accept-offer-btn {
-  grid-column: 1 / -1;
-  margin-top: 0;
+  grid-column:
+    1 / -1;
+
+  margin-top:
+    0;
 }
 
 .accepted-label {
-  grid-column: 1 / -1;
-  background: #e9f8ef;
-  color: #16833c;
-  padding: 10px;
-  text-align: center;
-  border-radius: 10px;
-  font-weight: bold;
+  grid-column:
+    1 / -1;
+
+  background:
+    #e9f8ef;
+
+  color:
+    #16833c;
+
+  padding:
+    10px;
+
+  text-align:
+    center;
+
+  border-radius:
+    10px;
+
+  font-weight:
+    bold;
 }
 
-.profile-card {
-  text-align: center;
+.personal-profile-card {
+  text-align:
+    center;
 }
 
+.personal-profile-card
 .profile-avatar {
-  width: 80px;
-  height: 80px;
-  margin: 0 auto 10px;
-  font-size: 38px;
+  width:
+    90px;
+
+  height:
+    90px;
+
+  margin:
+    0 auto 10px;
+
+  font-size:
+    40px;
 }
 
-.profile-card h2 {
-  margin: 5px 0;
+.personal-profile-card h2 {
+  margin:
+    5px 0 15px;
 }
 
-.account-type-label {
-  display: inline-block;
-  background: #edf5ff;
-  color: #0878df;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+.account-number-box {
+  background:
+    linear-gradient(
+      135deg,
+      #0878df,
+      #35a2ff
+    );
+
+  color:
+    white;
+
+  border-radius:
+    16px;
+
+  padding:
+    14px;
+
+  margin-bottom:
+    16px;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    5px;
+}
+
+.account-number-box span {
+  font-size:
+    12px;
+
+  opacity:
+    .9;
+}
+
+.account-number-box strong {
+  font-size:
+    22px;
+
+  letter-spacing:
+    1px;
+}
+
+.personal-section,
+.role-box {
+  text-align:
+    right;
+
+  background:
+    #f8fafc;
+
+  border-radius:
+    15px;
+
+  padding:
+    14px;
+
+  margin-top:
+    12px;
+}
+
+.section-title {
+  font-weight:
+    bold;
+
+  font-size:
+    15px;
+
+  margin-bottom:
+    8px;
 }
 
 .profile-data {
-  margin-top: 20px;
-  text-align: right;
+  margin-top:
+    10px;
+
+  text-align:
+    right;
 }
 
 .profile-data div {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 13px 0;
-  border-bottom: 1px solid #eee;
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  gap:
+    10px;
+
+  padding:
+    13px 0;
+
+  border-bottom:
+    1px solid #e5e7eb;
+}
+
+.profile-data div:last-child {
+  border-bottom:
+    0;
 }
 
 .profile-data span {
-  color: #777;
+  color:
+    #777;
 }
 
 .profile-data strong {
-  text-align: left;
+  text-align:
+    left;
+
+  max-width:
+    60%;
+
+  word-break:
+    break-word;
+}
+
+.role-status {
+  display:
+    grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap:
+    8px;
+}
+
+.role-status-item {
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    8px;
+
+  padding:
+    11px;
+
+  background:
+    #fff;
+
+  border-radius:
+    12px;
+
+  border:
+    1px solid #e5e7eb;
+
+  color:
+    #999;
+}
+
+.role-status-item > span {
+  font-size:
+    22px;
+}
+
+.role-status-item div {
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    3px;
+}
+
+.role-status-item small {
+  color:
+    #999;
+}
+
+.role-status-item.enabled {
+  border-color:
+    #b9e5c9;
+
+  background:
+    #f0fff5;
+
+  color:
+    #16833c;
+}
+
+.role-status-item.enabled small {
+  color:
+    #16833c;
+}
+
+.captain-activate-card {
+  width:
+    100%;
+
+  border:
+    1px solid #dbeafe;
+
+  background:
+    #f0f7ff;
+
+  border-radius:
+    16px;
+
+  padding:
+    15px;
+
+  margin-top:
+    14px;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    12px;
+
+  text-align:
+    right;
+}
+
+.activate-icon {
+  width:
+    48px;
+
+  height:
+    48px;
+
+  border-radius:
+    14px;
+
+  background:
+    white;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  font-size:
+    25px;
+}
+
+.captain-activate-card div:nth-child(2) {
+  flex:
+    1;
+}
+
+.captain-activate-card strong {
+  display:
+    block;
+
+  color:
+    #0878df;
+}
+
+.captain-activate-card span {
+  display:
+    block;
+
+  margin-top:
+    4px;
+
+  color:
+    #64748b;
+
+  font-size:
+    12px;
+}
+
+.captain-activate-card b {
+  color:
+    #0878df;
+
+  font-size:
+    20px;
+}
+
+.current-mode-box {
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  align-items:
+    center;
+
+  margin-top:
+    14px;
+
+  padding:
+    13px;
+
+  border-radius:
+    13px;
+
+  background:
+    #f3f4f6;
+}
+
+.current-mode-box span {
+  color:
+    #777;
+
+  font-size:
+    13px;
+}
+
+.current-mode-box strong {
+  color:
+    #0878df;
+}
+
+.big-role-icon {
+  font-size:
+    55px;
+
+  margin-bottom:
+    8px;
+}
+
+.page-description {
+  color:
+    #687386;
+
+  line-height:
+    1.8;
+
+  font-size:
+    14px;
+}
+
+.profile-card {
+  text-align:
+    center;
 }
 
 .profile-mini {
-  background: white;
-  border-radius: 15px;
-  padding: 15px;
-  display: flex;
-  justify-content: space-between;
-  gap: 15px;
+  background:
+    white;
+
+  border-radius:
+    15px;
+
+  padding:
+    15px;
+
+  display:
+    flex;
+
+  justify-content:
+    space-between;
+
+  gap:
+    15px;
 }
 
 .profile-mini div {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    5px;
 }
 
 .profile-mini span {
-  color: #777;
-  font-size: 13px;
+  color:
+    #777;
+
+  font-size:
+    13px;
 }
 
 .loading {
-  background: white;
-  padding: 25px;
-  border-radius: 15px;
-  text-align: center;
-  color: #777;
+  background:
+    white;
+
+  padding:
+    25px;
+
+  border-radius:
+    15px;
+
+  text-align:
+    center;
+
+  color:
+    #777;
 }
 
+/* TOAST */
+
 .toast-message {
-  position: fixed;
-  top: 18px;
-  left: 50%;
+  position:
+    fixed;
+
+  top:
+    18px;
+
+  left:
+    50%;
+
   transform:
-    translateX(-50%);
-  z-index: 99999;
-  max-width: 90%;
-  padding: 13px 18px;
-  border-radius: 12px;
-  color: white;
-  font-weight: bold;
+    translate(
+      -50%,
+      -25px
+    )
+    scale(.96);
+
+  width:
+    min(
+      92%,
+      420px
+    );
+
+  min-height:
+    70px;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  gap:
+    12px;
+
+  padding:
+    12px 14px;
+
+  border-radius:
+    18px;
+
+  color:
+    white;
+
+  z-index:
+    999999;
+
+  opacity:
+    0;
+
   box-shadow:
-    0 7px 25px rgba(
+    0 15px 45px
+    rgba(
       0,
       0,
       0,
-      .2
+      .20
+    );
+
+  backdrop-filter:
+    blur(12px);
+
+  transition:
+    opacity .25s ease,
+    transform .25s ease;
+
+  direction:
+    rtl;
+}
+
+.toast-message.show {
+  opacity:
+    1;
+
+  transform:
+    translate(
+      -50%,
+      0
+    )
+    scale(1);
+}
+
+.toast-icon {
+  width:
+    42px;
+
+  height:
+    42px;
+
+  min-width:
+    42px;
+
+  border-radius:
+    14px;
+
+  display:
+    flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  font-size:
+    22px;
+
+  font-weight:
+    900;
+
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      .18
+    );
+}
+
+.toast-content {
+  flex:
+    1;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  gap:
+    4px;
+}
+
+.toast-content strong {
+  font-size:
+    15px;
+}
+
+.toast-content span {
+  font-size:
+    13px;
+
+  line-height:
+    1.5;
+
+  opacity:
+    .95;
+}
+
+.toast-close {
+  border:
+    0;
+
+  background:
+    transparent;
+
+  color:
+    white;
+
+  font-size:
+    25px;
+
+  width:
+    30px;
+
+  height:
+    30px;
+
+  border-radius:
+    10px;
+
+  cursor:
+    pointer;
+
+  opacity:
+    .8;
+}
+
+.toast-close:hover {
+  background:
+    rgba(
+      255,
+      255,
+      255,
+      .15
+    );
+
+  opacity:
+    1;
+}
+
+.toast-message.success {
+  background:
+    linear-gradient(
+      135deg,
+      #0f9d58,
+      #22c477
+    );
+}
+
+.toast-message.error {
+  background:
+    linear-gradient(
+      135deg,
+      #d93025,
+      #f04b42
+    );
+}
+
+.toast-message.warning {
+  background:
+    linear-gradient(
+      135deg,
+      #e88900,
+      #f5a623
     );
 }
 
 .toast-message.info {
-  background: #0878df;
-}
-
-.toast-message.success {
-  background: #159447;
-}
-
-.toast-message.error {
-  background: #d93636;
+  background:
+    linear-gradient(
+      135deg,
+      #0878df,
+      #24a0ff
+    );
 }
 
 .leaflet-container {
@@ -3990,21 +7322,34 @@ button {
   .home-section,
   .content-page,
   .ride-page {
-    padding: 12px;
+    padding:
+      12px;
   }
 
   #map {
-    height: 390px;
+    height:
+      390px;
   }
 
   .info-grid {
-    gap: 7px;
+    gap:
+      7px;
   }
 
   .info-card {
-    padding: 11px 5px;
+    padding:
+      11px 5px;
   }
 
+  .role-status {
+    grid-template-columns:
+      1fr;
+  }
+
+  .profile-data strong {
+    max-width:
+      55%;
+  }
 }
 
 `;
