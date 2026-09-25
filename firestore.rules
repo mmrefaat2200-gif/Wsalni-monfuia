@@ -1,30 +1,302 @@
 rules_version = '2';
+
 service cloud.firestore {
+
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    /* ==================================================
+       HELPERS
+       ================================================== */
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn()
+        && request.auth.uid == uid;
+    }
+
+    function userData(uid) {
+      return get(
+        /databases/$(database)/documents/users/$(uid)
+      ).data;
+    }
+
+    function isCustomer(uid) {
+      return signedIn()
+        && userData(uid).role == "customer";
+    }
+
+    function isCaptain(uid) {
+      return signedIn()
+        && userData(uid).role == "captain";
+    }
+
+
+    /* ==================================================
+       USERS
+       ================================================== */
 
     match /users/{uid} {
-      allow read, create, update: if owner(uid);
+
+      /*
+        كل مستخدم يقدر يشوف ويعدل حسابه فقط.
+      */
+
+      allow read: if isOwner(uid);
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == request.auth.uid
+        && (
+          request.resource.data.role == "customer"
+          ||
+          request.resource.data.role == "captain"
+        );
+
+      allow update: if isOwner(uid)
+        && (
+          request.resource.data.role == "customer"
+          ||
+          request.resource.data.role == "captain"
+        );
+
+      allow delete: if false;
     }
+
+
+    /* ==================================================
+       RIDES
+       ================================================== */
 
     match /rides/{rideId} {
-      allow create: if signedIn() && request.resource.data.customerId == request.auth.uid;
-      allow read: if signedIn() && (
-        resource.data.customerId == request.auth.uid ||
-        resource.data.captainId == request.auth.uid ||
-        resource.data.status == "open"
-      );
-      allow update: if signedIn() && (
-        resource.data.customerId == request.auth.uid ||
-        resource.data.captainId == request.auth.uid
-      );
+
+      /*
+        إنشاء الرحلة:
+        العميل فقط.
+      */
+
+      allow create: if signedIn()
+        && isCustomer(request.auth.uid)
+        && request.resource.data.customerId
+            == request.auth.uid
+        && request.resource.data.status
+            == "open";
+
+
+      /*
+        قراءة الرحلات:
+        
+        الكابتن:
+        يشوف الرحلات المفتوحة فقط.
+
+        العميل:
+        يشوف رحلاته فقط.
+
+        الكابتن المقبول:
+        يشوف الرحلة التي قبلها.
+      */
+
+      allow read: if signedIn()
+        && (
+          (
+            isCustomer(request.auth.uid)
+            &&
+            resource.data.customerId
+              == request.auth.uid
+          )
+          ||
+          (
+            isCaptain(request.auth.uid)
+            &&
+            resource.data.status == "open"
+          )
+          ||
+          (
+            isCaptain(request.auth.uid)
+            &&
+            resource.data.captainId
+              == request.auth.uid
+          )
+        );
+
+
+      /*
+        تحديث الرحلة:
+
+        العميل:
+        يقدر يعدل رحلته.
+
+        الكابتن:
+        يقدر يقبل رحلة مفتوحة
+        أو يعدل الرحلة المقبولة الخاصة به.
+      */
+
+      allow update: if signedIn()
+        && (
+
+          /* العميل */
+          (
+            isCustomer(request.auth.uid)
+            &&
+            resource.data.customerId
+              == request.auth.uid
+          )
+
+          ||
+
+          /* الكابتن يقبل الرحلة */
+          (
+            isCaptain(request.auth.uid)
+            &&
+            resource.data.status == "open"
+            &&
+            request.resource.data.status
+              == "accepted"
+            &&
+            request.resource.data.captainId
+              == request.auth.uid
+            &&
+            request.resource.data.customerId
+              == resource.data.customerId
+          )
+
+          ||
+
+          /* الكابتن بعد القبول */
+          (
+            isCaptain(request.auth.uid)
+            &&
+            resource.data.captainId
+              == request.auth.uid
+          )
+
+        );
+
+
+      allow delete: if signedIn()
+        && isCustomer(request.auth.uid)
+        && resource.data.customerId
+            == request.auth.uid;
+
+
+      /* ==================================================
+         CONTACT
+         ================================================== */
+
+      match /contact/{contactId} {
+
+        /*
+          العميل ينشئ بيانات الاتصال وقت إنشاء الرحلة.
+        */
+
+        allow create: if signedIn()
+          && contactId == "info"
+          && isCustomer(request.auth.uid)
+          && get(
+            /databases/$(database)/documents/rides/$(rideId)
+          ).data.customerId
+            == request.auth.uid
+          && request.resource.data.customerPhone
+            == userData(request.auth.uid).phone;
+
+
+        /*
+          الرقم لا يظهر للكابتن إلا بعد قبول الرحلة.
+
+          العميل يشوف بيانات الاتصال لرحلته.
+
+          الكابتن المقبول يشوف بيانات الاتصال.
+        */
+
+        allow read: if signedIn()
+          && contactId == "info"
+          && (
+
+            (
+              get(
+                /databases/$(database)/documents/rides/$(rideId)
+              ).data.customerId
+                == request.auth.uid
+            )
+
+            ||
+
+            (
+              get(
+                /databases/$(database)/documents/rides/$(rideId)
+              ).data.status
+                == "accepted"
+              &&
+              get(
+                /databases/$(database)/documents/rides/$(rideId)
+              ).data.captainId
+                == request.auth.uid
+            )
+
+          );
+
+
+        /*
+          العميل يقدر يحدث رقم العميل الخاص به.
+
+          الكابتن المقبول يقدر يضيف رقمه.
+        */
+
+        allow update: if signedIn()
+          && contactId == "info"
+          && (
+
+            (
+              get(
+                /databases/$(database)/documents/rides/$(rideId)
+              ).data.customerId
+                == request.auth.uid
+              &&
+              request.resource.data.customerPhone
+                == userData(request.auth.uid).phone
+            )
+
+            ||
+
+            (
+              get(
+                /databases/$(database)/documents/rides/$(rideId)
+              ).data.status
+                == "accepted"
+              &&
+              get(
+                /databases/$(database)/documents/rides/$(rideId)
+              ).data.captainId
+                == request.auth.uid
+              &&
+              request.resource.data.captainPhone
+                == userData(request.auth.uid).phone
+            )
+
+          );
+
+
+        allow delete: if false;
+      }
+
+
+      /* ==================================================
+         OLD OFFERS
+         ==================================================
+
+         النظام الجديد لا يعتمد على العروض.
+         الكابتن يقبل الرحلة مباشرة.
+
+         ممنوع استخدام offers من التطبيق الجديد.
+      */
 
       match /offers/{offerId} {
-        allow read: if signedIn();
-        allow create: if owner(offerId);
-        allow update, delete: if owner(offerId);
+        allow read, create, update, delete: if false;
       }
+
     }
+
   }
+
 }
