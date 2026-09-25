@@ -38,7 +38,7 @@ import { Geolocation } from "@capacitor/geolocation";
 
 /* ======================================================
    FIREBASE
-====================================================== */
+   ====================================================== */
 
 const firebaseConfig = {
   apiKey: "AIzaSyAZVXuhTTiGKfDflIZUm_8IgzhRjjWsfIc",
@@ -47,7 +47,7 @@ const firebaseConfig = {
   storageBucket: "wasselni-monufia-13f28.firebasestorage.app",
   messagingSenderId: "1007737426615",
   appId: "1:1007737426615:web:76492206c1cd5f3fcef332",
-  measurementId: "G-GGBSNFP0MS"
+  measurementId: "G-7K0MVY6F73"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -63,54 +63,62 @@ setPersistence(
 
 
 /* ======================================================
-   VARIABLES
-====================================================== */
+   GLOBAL VARIABLES
+   ====================================================== */
 
 let user = null;
+
 let profile = null;
 
 let map = null;
 
 let pickupMarker = null;
+
 let destMarker = null;
+
 let routeLayer = null;
+
 let accuracyCircle = null;
 
 let confirmationResult = null;
+
 let recaptcha = null;
 
 let watchRides = null;
+
 let watchCustomer = null;
+
 let watchCaptainAccepted = null;
 
 let pickup = null;
+
 let destination = null;
 
 
 /* ======================================================
    HELPERS
-====================================================== */
+   ====================================================== */
 
 const $ = selector =>
   document.querySelector(selector);
 
 
-function esc(value) {
+const esc = value =>
+  String(value ?? "").replace(
+    /[&<>"']/g,
+    char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[char])
+  );
 
-  return String(value ?? "")
-    .replace(
-      /[&<>"']/g,
-      char =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#039;"
-        }[char])
-    );
-}
 
+/* ======================================================
+   PHONE
+   ====================================================== */
 
 function phone(value) {
 
@@ -137,14 +145,23 @@ function phone(value) {
 }
 
 
+/* ======================================================
+   LOGIN EMAIL
+   ====================================================== */
+
 function loginEmail(phoneNumber) {
 
   return (
     phone(phoneNumber).replace(/\D/g, "") +
     "@phone.wasselni.app"
   );
+
 }
 
+
+/* ======================================================
+   ACCOUNT NUMBER
+   ====================================================== */
 
 function accountNo() {
 
@@ -154,14 +171,18 @@ function accountNo() {
       Math.random() * 90000000
     )
   );
+
 }
 
 
 /* ======================================================
    MESSAGE
-====================================================== */
+   ====================================================== */
 
-function msg(text, type = "info") {
+function msg(
+  text,
+  type = "info"
+) {
 
   const element = $("#message");
 
@@ -176,72 +197,45 @@ function msg(text, type = "info") {
 
   clearTimeout(window.__msg);
 
-  window.__msg =
-    setTimeout(() => {
-
+  window.__msg = setTimeout(
+    () => {
       element.style.display = "none";
+    },
+    4500
+  );
 
-    }, 4500);
 }
 
 
 /* ======================================================
-   SCREEN NAVIGATION
-====================================================== */
+   SCREEN
+   ====================================================== */
 
 function screen(id) {
 
-  /*
-    مهم جدًا:
-    نخفي كل الصفحات أولاً.
-    وبعدها نظهر الصفحة المطلوبة فقط.
-  */
-
   document
     .querySelectorAll(".screen")
-    .forEach(element => {
+    .forEach(element =>
+      element.classList.remove("active")
+    );
 
-      element.classList.remove("active");
+  $("#" + id)?.classList.add("active");
 
-    });
+  if ($("#nav")) {
 
-
-  const target = $("#" + id);
-
-  if (target) {
-
-    target.classList.add("active");
-
-  }
-
-
-  /*
-    شريط التنقل لا يظهر في تسجيل الدخول
-    أو إنشاء الحساب.
-  */
-
-  const nav = $("#nav");
-
-  if (nav) {
-
-    nav.style.display =
+    $("#nav").style.display =
       ["login", "register"].includes(id)
         ? "none"
-        : "grid";
+        : "flex";
 
   }
 
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
 }
 
 
 /* ======================================================
    STATUS
-====================================================== */
+   ====================================================== */
 
 function statusText(status) {
 
@@ -267,12 +261,13 @@ function statusText(status) {
       "ملغاة"
 
   }[status] || status || "غير معروف";
+
 }
 
 
 /* ======================================================
-   DATE
-====================================================== */
+   DAY NAME
+   ====================================================== */
 
 function dayName(date) {
 
@@ -286,8 +281,13 @@ function dayName(date) {
   ).format(
     new Date(`${date}T12:00:00`)
   );
+
 }
 
+
+/* ======================================================
+   FORMAT DATE
+   ====================================================== */
 
 function formatDate(value) {
 
@@ -303,12 +303,13 @@ function formatDate(value) {
   ).format(
     new Date(`${value}T12:00:00`)
   );
+
 }
 
 
 /* ======================================================
    HTML
-====================================================== */
+   ====================================================== */
 
 $("#app").innerHTML = `
 
@@ -316,673 +317,704 @@ $("#app").innerHTML = `
 
 <header class="header">
 
-  <div class="logo">
-    🚕 وصلني <span>المنوفية</span>
-  </div>
+<div class="logo">
+🚕 وصلني
+<span>المنوفية</span>
+</div>
 
-  <button
-    id="profileTop"
-    class="icon-button"
-  >
-    👤
-  </button>
+<button
+id="profileTop"
+class="icon-button">
+👤
+</button>
 
 </header>
 
 
 <div
-  id="message"
-  class="message-box"
-  style="display:none"
-></div>
+id="message"
+class="message-box"
+style="display:none">
+</div>
 
 
-<!-- ================= LOGIN ================= -->
+<!-- LOGIN -->
 
 <section
-  id="login"
-  class="screen active"
->
+id="login"
+class="screen active">
 
-  <div class="auth-card">
+<div class="auth-card">
 
-    <div class="auth-logo">
-      🚕
-    </div>
+<div class="auth-logo">
+🚕
+</div>
 
-    <h1>
-      وصلني المنوفية
-    </h1>
+<h1>
+وصلني المنوفية
+</h1>
 
-    <p class="muted">
-      تسجيل الدخول برقم الموبايل وكلمة المرور
-    </p>
-
-
-    <label>
-      📱 رقم الموبايل
-    </label>
-
-    <input
-      id="loginPhone"
-      type="tel"
-      inputmode="tel"
-      placeholder="010xxxxxxxx"
-    >
+<p class="muted">
+تسجيل الدخول برقم الموبايل وكلمة المرور
+</p>
 
 
-    <label>
-      🔐 كلمة المرور
-    </label>
+<label>
+📱 رقم الموبايل
+</label>
 
-    <input
-      id="loginPass"
-      type="password"
-      placeholder="كلمة المرور"
-    >
-
-
-    <button
-      id="loginBtn"
-      class="btn primary"
-    >
-      تسجيل الدخول
-    </button>
+<input
+id="loginPhone"
+type="tel"
+inputmode="tel"
+placeholder="010xxxxxxxx"
+/>
 
 
-    <button
-      id="registerOpen"
-      class="btn outline"
-    >
-      إنشاء حساب جديد
-    </button>
+<label>
+🔐 كلمة المرور
+</label>
+
+<input
+id="loginPass"
+type="password"
+placeholder="كلمة المرور"
+/>
 
 
-    <div
-      id="loginMsg"
-      class="status"
-    ></div>
+<button
+id="loginBtn"
+class="btn primary">
 
-  </div>
+تسجيل الدخول
+
+</button>
+
+
+<button
+id="registerOpen"
+class="btn outline">
+
+إنشاء حساب جديد
+
+</button>
+
+
+<div
+id="loginMsg"
+class="status">
+</div>
+
+</div>
 
 </section>
 
 
-<!-- ================= REGISTER ================= -->
+<!-- REGISTER -->
 
 <section
-  id="register"
-  class="screen"
->
+id="register"
+class="screen">
 
-  <div class="auth-card">
-
-    <button
-      id="backLogin"
-      class="back-btn"
-    >
-      ← رجوع
-    </button>
+<div class="auth-card">
 
 
-    <h2>
-      إنشاء حساب
-    </h2>
+<button
+id="backLogin"
+class="back-btn">
+
+← رجوع
+
+</button>
 
 
-    <label>
-      نوع الحساب
-    </label>
-
-    <select id="role">
-
-      <option value="customer">
-        👤 عميل
-      </option>
-
-      <option value="captain">
-        🚗 كابتن
-      </option>
-
-    </select>
+<h2>
+إنشاء حساب
+</h2>
 
 
-    <label>
-      الاسم بالكامل
-    </label>
+<label>
+نوع الحساب
+</label>
 
-    <input
-      id="name"
-      placeholder="الاسم"
-    >
+<select id="role">
 
+<option value="customer">
+👤 عميل
+</option>
 
-    <label>
-      📱 رقم الموبايل
-    </label>
+<option value="captain">
+🚗 كابتن
+</option>
 
-    <input
-      id="regPhone"
-      type="tel"
-      inputmode="tel"
-      placeholder="010xxxxxxxx"
-    >
+</select>
 
 
-    <label>
-      🔐 كلمة المرور
-    </label>
+<label>
+الاسم بالكامل
+</label>
 
-    <input
-      id="regPass"
-      type="password"
-      placeholder="6 أحرف أو أرقام على الأقل"
-    >
-
-
-    <label>
-      🔐 تأكيد كلمة المرور
-    </label>
-
-    <input
-      id="regPass2"
-      type="password"
-      placeholder="تأكيد كلمة المرور"
-    >
+<input
+id="name"
+placeholder="الاسم"
+/>
 
 
-    <div
-      id="captainFields"
-      style="display:none"
-    >
+<label>
+📱 رقم الموبايل
+</label>
 
-      <label>
-        🎂 السن
-      </label>
-
-      <input
-        id="age"
-        type="number"
-        min="18"
-        placeholder="السن"
-      >
+<input
+id="regPhone"
+type="tel"
+inputmode="tel"
+placeholder="010xxxxxxxx"
+/>
 
 
-      <label>
-        🚗 نوع العربية
-      </label>
+<label>
+🔐 كلمة المرور
+</label>
 
-      <input
-        id="carType"
-        placeholder="سيدان / ميكروباص / نص نقل"
-      >
-
-
-      <label>
-        🚘 موديل العربية
-      </label>
-
-      <input
-        id="carModel"
-        placeholder="مثال: لانسر 2018"
-      >
+<input
+id="regPass"
+type="password"
+placeholder="6 أحرف أو أرقام على الأقل"
+/>
 
 
-      <label>
-        🔢 رقم اللوحة
-      </label>
+<label>
+🔐 تأكيد كلمة المرور
+</label>
 
-      <input
-        id="plate"
-        placeholder="رقم اللوحة"
-      >
-
-    </div>
-
-
-    <div id="regRecaptcha"></div>
+<input
+id="regPass2"
+type="password"
+placeholder="تأكيد كلمة المرور"
+/>
 
 
-    <button
-      id="sendCode"
-      class="btn primary"
-    >
-      إرسال كود التحقق
-    </button>
+<div
+id="captainFields"
+style="display:none">
 
 
-    <div
-      id="codeBox"
-      style="display:none"
-    >
+<label>
+🎂 السن
+</label>
 
-      <label>
-        🔢 كود التحقق
-      </label>
-
-      <input
-        id="code"
-        inputmode="numeric"
-        placeholder="الكود"
-      >
+<input
+id="age"
+type="number"
+min="18"
+placeholder="السن"
+/>
 
 
-      <button
-        id="finishReg"
-        class="btn green"
-      >
-        تأكيد وإنشاء الحساب
-      </button>
+<label>
+🚗 نوع العربية
+</label>
 
-    </div>
+<input
+id="carType"
+placeholder="سيدان / ميكروباص / نص نقل"
+/>
 
 
-    <div
-      id="regMsg"
-      class="status"
-    ></div>
+<label>
+🚘 موديل العربية
+</label>
 
-  </div>
+<input
+id="carModel"
+placeholder="مثال: لانسر 2018"
+/>
+
+
+<label>
+🔢 رقم اللوحة
+</label>
+
+<input
+id="plate"
+placeholder="رقم اللوحة"
+/>
+
+</div>
+
+
+<div id="regRecaptcha"></div>
+
+
+<button
+id="sendCode"
+class="btn primary">
+
+إرسال كود التحقق
+
+</button>
+
+
+<div
+id="codeBox"
+style="display:none">
+
+<label>
+🔢 كود التحقق
+</label>
+
+<input
+id="code"
+inputmode="numeric"
+placeholder="الكود"
+/>
+
+
+<button
+id="finishReg"
+class="btn green">
+
+تأكيد وإنشاء الحساب
+
+</button>
+
+</div>
+
+
+<div
+id="regMsg"
+class="status">
+</div>
+
+
+</div>
 
 </section>
 
 
-<!-- ================= CUSTOMER HOME ================= -->
+<!-- CUSTOMER HOME -->
 
 <section
-  id="home"
-  class="screen"
->
-
-  <div class="hero">
-
-    <h2>
-      أهلاً بيك 👋
-    </h2>
-
-    <p>
-      اطلب رحلتك وحدد كل التفاصيل.
-    </p>
-
-  </div>
+id="home"
+class="screen">
 
 
-  <div class="card">
+<div class="hero">
 
-    <label>
-      📍 الانطلاق
-    </label>
+<h2>
+أهلاً بيك 👋
+</h2>
 
-    <button
-      id="myLocation"
-      class="btn outline"
-    >
-      🎯 تحديد موقعي بدقة
-    </button>
+<p>
+اطلب رحلتك وحدد كل التفاصيل.
+</p>
 
-    <div
-      id="pickupText"
-      class="status"
-    >
-      لم يتم تحديد موقعك
-    </div>
-
-  </div>
+</div>
 
 
-  <div class="card">
+<div class="card">
 
-    <label>
-      🏁 الوصول
-    </label>
-
-    <button
-      id="chooseDest"
-      class="btn outline"
-    >
-      🗺️ تحديد مكان النزول على الخريطة
-    </button>
-
-    <div
-      id="destText"
-      class="status"
-    >
-      لم يتم تحديد مكان الوصول
-    </div>
-
-  </div>
+<label>
+📍 الانطلاق
+</label>
 
 
-  <div class="card">
+<button
+id="myLocation"
+class="btn outline">
 
-    <label>
-      📅 يوم الرحلة
-    </label>
+🎯 تحديد موقعي بدقة
 
-    <input
-      id="rideDate"
-      type="date"
-    >
-
-    <div
-      id="dayPreview"
-      class="status"
-    ></div>
+</button>
 
 
-    <label>
-      🕐 وقت الرحلة
-    </label>
+<div
+id="pickupText"
+class="status">
 
-    <input
-      id="rideTime"
-      type="time"
-    >
+لم يتم تحديد موقعك
 
+</div>
 
-    <label>
-      👥 عدد الركاب
-    </label>
-
-    <select id="passengers">
-
-      ${Array
-        .from(
-          { length: 8 },
-          (_, i) =>
-            `<option value="${i + 1}">
-              ${i + 1}
-            </option>`
-        )
-        .join("")
-      }
-
-    </select>
+</div>
 
 
-    <label>
-      💰 السعر المقترح
-    </label>
+<div class="card">
 
-    <input
-      id="price"
-      type="number"
-      min="1"
-      placeholder="مثال 150"
-    >
+<label>
+🏁 الوصول
+</label>
 
 
-    <label>
-      📝 الرسالة / الملاحظات
-    </label>
+<button
+id="chooseDest"
+class="btn outline">
 
-    <textarea
-      id="notes"
-      rows="3"
-      placeholder="شنطة كبيرة، طفل، شارع ضيق، أي ملاحظة للكابتن..."
-    ></textarea>
+🗺️ تحديد مكان النزول على الخريطة
+
+</button>
 
 
-    <button
-      id="request"
-      class="btn primary"
-    >
-      🚕 نشر الرحلة للكباتن
-    </button>
+<div
+id="destText"
+class="status">
 
-  </div>
+لم يتم تحديد مكان الوصول
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+
+<label>
+📅 يوم الرحلة
+</label>
+
+<input
+id="rideDate"
+type="date"
+/>
+
+
+<div
+id="dayPreview"
+class="status">
+</div>
+
+
+<label>
+🕐 وقت الرحلة
+</label>
+
+<input
+id="rideTime"
+type="time"
+/>
+
+
+<label>
+👥 عدد الركاب
+</label>
+
+<select id="passengers">
+
+${Array.from(
+  { length: 8 },
+  (_, i) =>
+    `<option value="${i + 1}">
+      ${i + 1}
+    </option>`
+).join("")}
+
+</select>
+
+
+<label>
+💰 السعر المقترح
+</label>
+
+<input
+id="price"
+type="number"
+min="1"
+placeholder="مثال 150"
+/>
+
+
+<label>
+📝 الرسالة / الملاحظات
+</label>
+
+<textarea
+id="notes"
+rows="3"
+placeholder="شنطة كبيرة، طفل، شارع ضيق، أي ملاحظة للكابتن...">
+</textarea>
+
+
+<button
+id="request"
+class="btn primary">
+
+🚕 نشر الرحلة للكباتن
+
+</button>
+
+</div>
 
 </section>
 
 
-<!-- ================= MAP ================= -->
+<!-- MAP -->
 
 <section
-  id="mapScreen"
-  class="screen"
->
-
-  <div class="card">
-
-    <div class="map-head">
-
-      <div>
-
-        <h2>
-          🗺️ تحديد المكان
-        </h2>
-
-        <small>
-          حرّك الخريطة حتى الدبوس فوق المكان المطلوب.
-        </small>
-
-      </div>
+id="mapScreen"
+class="screen">
 
 
-      <button
-        id="closeMap"
-        class="btn danger small-btn"
-      >
-        إلغاء
-      </button>
-
-    </div>
+<div class="card">
 
 
-    <input
-      id="search"
-      placeholder="🔎 ابحث عن شارع، قرية، منزل أو مكان"
-    >
+<div class="map-head">
+
+<div>
+
+<h2>
+🗺️ تحديد المكان
+</h2>
+
+<small>
+حرّك الخريطة حتى الدبوس فوق المكان المطلوب.
+</small>
+
+</div>
 
 
-    <div
-      id="results"
-      class="search-results"
-    ></div>
+<button
+id="closeMap"
+class="btn danger small-btn">
 
-  </div>
+إلغاء
 
+</button>
 
-  <div class="map-wrapper">
-
-    <div id="map"></div>
-
-    <div class="map-center-pin">
-      📍
-    </div>
-
-    <button
-      id="mapLocation"
-      class="map-control"
-    >
-      🎯
-    </button>
-
-  </div>
+</div>
 
 
-  <div class="card">
-
-    <div
-      id="address"
-      class="status"
-    >
-      حدد المكان.
-    </div>
+<input
+id="search"
+placeholder="🔎 ابحث عن شارع، قرية، منزل أو مكان"
+/>
 
 
-    <div
-      id="coords"
-      class="coords"
-    ></div>
+<div
+id="results"
+class="search-results">
+</div>
+
+</div>
 
 
-    <button
-      id="confirmDest"
-      class="btn primary"
-    >
-      ✅ تأكيد المكان
-    </button>
+<div class="map-wrapper">
 
-  </div>
+<div id="map"></div>
+
+<div class="map-center-pin">
+📍
+</div>
+
+
+<button
+id="mapLocation"
+class="map-control">
+
+🎯
+
+</button>
+
+</div>
+
+
+<div class="card">
+
+<div
+id="address"
+class="status">
+
+حدد المكان.
+
+</div>
+
+
+<div
+id="coords"
+class="coords">
+</div>
+
+
+<button
+id="confirmDest"
+class="btn primary">
+
+✅ تأكيد المكان
+
+</button>
+
+</div>
 
 </section>
 
 
-<!-- ================= CUSTOMER RIDES ================= -->
+<!-- RIDES -->
 
 <section
-  id="rides"
-  class="screen"
->
-
-  <div class="hero">
-
-    <h2>
-      📋 رحلاتي
-    </h2>
-
-    <p>
-      تابع الرحلة من النشر حتى الانتهاء.
-    </p>
-
-  </div>
+id="rides"
+class="screen">
 
 
-  <div id="ridesList"></div>
+<div class="hero">
+
+<h2>
+📋 رحلاتي
+</h2>
+
+<p>
+تابع الرحلة من النشر حتى الانتهاء.
+</p>
+
+</div>
+
+
+<div id="ridesList">
+</div>
+
 
 </section>
 
 
-<!-- ================= CAPTAIN ================= -->
+<!-- CAPTAIN -->
 
 <section
-  id="captain"
-  class="screen"
->
-
-  <div class="hero">
-
-    <h2>
-      🚗 منصة الكابتن
-    </h2>
-
-    <p>
-      فعّل حالتك وشوف الرحلات الجديدة.
-    </p>
-
-  </div>
+id="captain"
+class="screen">
 
 
-  <div class="card captain-toggle">
+<div class="hero">
 
-    <button
-      id="captainAvailable"
-      class="btn green"
-    >
-      🟢 أنا متاح
-    </button>
+<h2>
+🚗 منصة الكابتن
+</h2>
 
+<p>
+فعّل حالتك وشوف الرحلات الجديدة.
+</p>
 
-    <button
-      id="captainUnavailable"
-      class="btn outline"
-    >
-      ⚫ غير متاح
-    </button>
+</div>
 
 
-    <div
-      id="captainState"
-      class="status"
-    ></div>
-
-  </div>
+<div class="card captain-toggle">
 
 
-  <h3>
-    📢 الرحلات الجديدة
-  </h3>
+<button
+id="captainAvailable"
+class="btn green">
 
-  <div id="captainList"></div>
+🟢 أنا متاح
+
+</button>
 
 
-  <h3>
-    🚕 رحلات قبلتها
-  </h3>
+<button
+id="captainUnavailable"
+class="btn outline">
 
-  <div id="captainAcceptedList"></div>
+⚫ غير متاح
+
+</button>
+
+
+<div
+id="captainState"
+class="status">
+</div>
+
+</div>
+
+
+<h3>
+📢 الرحلات الجديدة
+</h3>
+
+
+<div id="captainList">
+</div>
+
+
+<h3>
+🚕 رحلات قبلتها
+</h3>
+
+
+<div id="captainAcceptedList">
+</div>
+
 
 </section>
 
 
-<!-- ================= PROFILE ================= -->
+<!-- PROFILE -->
 
 <section
-  id="profile"
-  class="screen"
->
-
-  <div class="card">
-
-    <div class="avatar">
-      👤
-    </div>
-
-    <h2>
-      حسابي
-    </h2>
+id="profile"
+class="screen">
 
 
-    <div id="profileInfo"></div>
+<div class="card">
+
+<div class="avatar">
+👤
+</div>
 
 
-    <button
-      id="logout"
-      class="btn danger"
-    >
-      تسجيل الخروج
-    </button>
+<h2>
+حسابي
+</h2>
 
-  </div>
+
+<div id="profileInfo">
+</div>
+
+
+<button
+id="logout"
+class="btn danger">
+
+تسجيل الخروج
+
+</button>
+
+</div>
 
 </section>
 
 
-<!-- ================= NAV ================= -->
+<!-- NAV -->
 
 <nav
-  id="nav"
-  class="nav"
-  style="display:none"
->
-
-  <button id="navHome">
-    🏠
-    <br>
-    الرئيسية
-  </button>
+id="nav"
+class="nav">
 
 
-  <button id="navRides">
-    📋
-    <br>
-    رحلاتي
-  </button>
+<button id="navHome">
+🏠
+<br>
+الرئيسية
+</button>
 
 
-  <button id="navCaptain">
-    🚗
-    <br>
-    الكابتن
-  </button>
+<button id="navRides">
+📋
+<br>
+رحلاتي
+</button>
 
 
-  <button id="navProfile">
-    👤
-    <br>
-    حسابي
-  </button>
+<button id="navCaptain">
+🚗
+<br>
+الكابتن
+</button>
+
+
+<button id="navProfile">
+👤
+<br>
+حسابي
+</button>
+
 
 </nav>
 
@@ -993,23 +1025,19 @@ $("#app").innerHTML = `
 
 /* ======================================================
    LOCATION
-====================================================== */
+   ====================================================== */
 
 async function exactLocation() {
 
-  const permission =
+  const permissions =
     await Geolocation.checkPermissions();
 
-  if (
-    permission.location !== "granted"
-  ) {
+  if (permissions.location !== "granted") {
 
     const result =
       await Geolocation.requestPermissions();
 
-    if (
-      result.location !== "granted"
-    ) {
+    if (result.location !== "granted") {
 
       throw Error(
         "LOCATION_DENIED"
@@ -1022,9 +1050,13 @@ async function exactLocation() {
 
   const position =
     await Geolocation.getCurrentPosition({
+
       enableHighAccuracy: true,
+
       timeout: 20000,
+
       maximumAge: 0
+
     });
 
 
@@ -1046,9 +1078,12 @@ async function exactLocation() {
 
 /* ======================================================
    REVERSE GEOCODING
-====================================================== */
+   ====================================================== */
 
-async function reverse(lat, lng) {
+async function reverse(
+  lat,
+  lng
+) {
 
   try {
 
@@ -1078,9 +1113,12 @@ async function reverse(lat, lng) {
 
 /* ======================================================
    MAP MARKER
-====================================================== */
+   ====================================================== */
 
-function marker(type, position) {
+function marker(
+  type,
+  position
+) {
 
   const icon =
     L.divIcon({
@@ -1090,7 +1128,11 @@ function marker(type, position) {
 
       html:
         `<div class="${type}-marker">
-          ${type === "pickup" ? "🚕" : "📍"}
+          ${
+            type === "pickup"
+              ? "🚕"
+              : "📍"
+          }
         </div>`,
 
       iconSize:
@@ -1107,7 +1149,9 @@ function marker(type, position) {
       position.lat,
       position.lng
     ],
-    { icon }
+    {
+      icon
+    }
   ).addTo(map);
 
 }
@@ -1115,7 +1159,7 @@ function marker(type, position) {
 
 /* ======================================================
    MAP CENTER
-====================================================== */
+   ====================================================== */
 
 async function centerChanged() {
 
@@ -1164,14 +1208,14 @@ async function centerChanged() {
 
 
   $("#address").innerHTML =
-    `🏁 <strong>${
-      esc(
+    `🏁 <strong>
+      ${esc(
         await reverse(
           center.lat,
           center.lng
         )
-      )
-    }</strong>`;
+      )}
+    </strong>`;
 
 
   drawRoute();
@@ -1181,7 +1225,7 @@ async function centerChanged() {
 
 /* ======================================================
    INIT MAP
-====================================================== */
+   ====================================================== */
 
 function initMap() {
 
@@ -1198,38 +1242,48 @@ function initMap() {
 
 
   map =
-    L.map("map", {
-      zoomControl: false
-    });
+    L.map(
+      "map",
+      {
+        zoomControl: false
+      }
+    ).setView(
 
+      pickup
+        ? [
+            pickup.lat,
+            pickup.lng
+          ]
+        : [
+            30.5526,
+            31.0106
+          ],
 
-  map.setView(
-    pickup
-      ? [
-          pickup.lat,
-          pickup.lng
-        ]
-      : [
-          30.5526,
-          31.0106
-        ],
-    pickup ? 18 : 13
-  );
+      pickup
+        ? 18
+        : 13
+
+    );
 
 
   L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
+
       maxZoom: 20,
+
       attribution:
         "© OpenStreetMap contributors"
+
     }
   ).addTo(map);
 
 
-  L.control.zoom({
-    position: "bottomright"
-  }).addTo(map);
+  L.control
+    .zoom({
+      position: "bottomright"
+    })
+    .addTo(map);
 
 
   map.on(
@@ -1257,14 +1311,23 @@ function initMap() {
         destination
       );
 
+
+    map.setView(
+      [
+        destination.lat,
+        destination.lng
+      ],
+      19
+    );
+
   }
 
 }
 
 
 /* ======================================================
-   PICKUP
-====================================================== */
+   SET PICKUP
+   ====================================================== */
 
 async function setPickup() {
 
@@ -1330,7 +1393,8 @@ async function setPickup() {
 
             weight: 2,
 
-            fillOpacity: .08
+            fillOpacity: 0.08
+
           }
         ).addTo(map);
 
@@ -1345,11 +1409,15 @@ async function setPickup() {
 
 
     $("#pickupText").innerHTML =
-      `📍 <strong>${esc(address)}</strong>
-       <br>
-       <small>
-       دقة GPS تقريباً ${Math.round(position.accuracy)} متر
-       </small>`;
+      `📍 <strong>
+        ${esc(address)}
+      </strong>
+      <br>
+      <small>
+        دقة GPS تقريباً
+        ${Math.round(position.accuracy)}
+        متر
+      </small>`;
 
 
     if (map) {
@@ -1370,6 +1438,7 @@ async function setPickup() {
       "success"
     );
 
+
   } catch (error) {
 
     console.error(error);
@@ -1386,7 +1455,7 @@ async function setPickup() {
 
 /* ======================================================
    ROUTE
-====================================================== */
+   ====================================================== */
 
 async function drawRoute() {
 
@@ -1419,8 +1488,7 @@ async function drawRoute() {
 
 
     if (
-      !data.routes ||
-      !data.routes.length
+      !data.routes?.length
     ) {
 
       return;
@@ -1441,10 +1509,11 @@ async function drawRoute() {
         {
           style: {
             weight: 6,
-            opacity: .85
+            opacity: 0.85
           }
         }
       ).addTo(map);
+
 
   } catch (error) {
 
@@ -1457,7 +1526,7 @@ async function drawRoute() {
 
 /* ======================================================
    SEARCH PLACES
-====================================================== */
+   ====================================================== */
 
 async function searchPlaces(queryText) {
 
@@ -1483,12 +1552,9 @@ async function searchPlaces(queryText) {
   try {
 
     const url =
-      `https://nominatim.openstreetmap.org/search?format=jsonv2` +
-      `&q=${encodeURIComponent(queryText + ", Egypt")}` +
-      `&limit=8` +
-      `&addressdetails=1` +
-      `&accept-language=ar` +
-      `&countrycodes=eg`;
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+        queryText + ", Egypt"
+      )}&limit=8&addressdetails=1&accept-language=ar&countrycodes=eg`;
 
 
     const response =
@@ -1502,18 +1568,21 @@ async function searchPlaces(queryText) {
     box.innerHTML =
       data.length
 
-        ? data.map(
-            item =>
+        ? data
+            .map(
+              place =>
+                `<button
+                  class="search-result"
+                  data-lat="${place.lat}"
+                  data-lon="${place.lon}"
+                  data-name="${esc(place.display_name)}">
 
-              `<button
-                class="search-result"
-                data-lat="${item.lat}"
-                data-lon="${item.lon}"
-                data-name="${esc(item.display_name)}"
-              >
-                📍 ${esc(item.display_name)}
-              </button>`
-          ).join("")
+                  📍
+                  ${esc(place.display_name)}
+
+                </button>`
+            )
+            .join("")
 
         : "<div class='status'>لا توجد نتائج.</div>";
 
@@ -1524,42 +1593,42 @@ async function searchPlaces(queryText) {
       )
       .forEach(button => {
 
-        button.onclick =
-          () => {
+        button.onclick = () => {
 
-            destination = {
+          destination = {
 
-              lat:
-                Number(
-                  button.dataset.lat
-                ),
+            lat:
+              Number(
+                button.dataset.lat
+              ),
 
-              lng:
-                Number(
-                  button.dataset.lon
-                )
-
-            };
-
-
-            map.setView(
-              [
-                destination.lat,
-                destination.lng
-              ],
-              19
-            );
-
-
-            $("#search").value =
-              button.dataset.name;
-
-
-            box.innerHTML = "";
+            lng:
+              Number(
+                button.dataset.lon
+              )
 
           };
 
+
+          map.setView(
+            [
+              destination.lat,
+              destination.lng
+            ],
+            19
+          );
+
+
+          $("#search").value =
+            button.dataset.name;
+
+
+          box.innerHTML = "";
+
+        };
+
       });
+
 
   } catch {
 
@@ -1569,363 +1638,349 @@ async function searchPlaces(queryText) {
   }
 
 }
+/* ======================================================
+   MAP / HOME EVENTS
+   ====================================================== */
+
+$("#myLocation").onclick = async () => {
+  await setPickup();
+};
+
+$("#mapLocation").onclick = async () => {
+  await setPickup();
+};
+
+$("#chooseDest").onclick = () => {
+
+  screen("mapScreen");
+
+  setTimeout(() => {
+
+    initMap();
+
+    if (map) {
+      map.invalidateSize();
+    }
+
+  }, 150);
+
+};
+
+$("#closeMap").onclick = () => {
+  screen("home");
+};
+
+
+$("#confirmDest").onclick = async () => {
+
+  if (!destination) {
+
+    msg(
+      "حدد مكان الوصول أولاً",
+      "error"
+    );
+
+    return;
+  }
+
+
+  const address =
+    await reverse(
+      destination.lat,
+      destination.lng
+    );
+
+
+  $("#destText").innerHTML =
+    `🏁 <strong>
+      ${esc(address)}
+    </strong>`;
+
+
+  screen("home");
+
+
+  msg(
+    "تم تحديد مكان الوصول بدقة ✅",
+    "success"
+  );
+
+};
+
+
+let searchTimer;
+
+$("#search").oninput = () => {
+
+  clearTimeout(searchTimer);
+
+  searchTimer =
+    setTimeout(
+      () =>
+        searchPlaces(
+          $("#search").value.trim()
+        ),
+      650
+    );
+
+};
+
+
+$("#rideDate").onchange = () => {
+
+  const day =
+    dayName(
+      $("#rideDate").value
+    );
+
+  $("#dayPreview").textContent =
+    day
+      ? `📆 ${day}`
+      : "";
+
+};
 
 
 /* ======================================================
-   CUSTOMER MAP EVENTS
-====================================================== */
+   CREATE RIDE
+   ====================================================== */
 
-$("#myLocation").onclick =
-  async () => {
+$("#request").onclick = async () => {
 
-    await setPickup();
+  if (!user) {
 
-  };
+    screen("login");
+
+    return;
+
+  }
 
 
-$("#mapLocation").onclick =
-  setPickup;
+  if (
+    profile?.role !== "customer"
+  ) {
 
-
-$("#chooseDest").onclick =
-  () => {
-
-    screen("mapScreen");
-
-    setTimeout(
-      () => {
-
-        initMap();
-
-        map.invalidateSize();
-
-      },
-      150
+    msg(
+      "حساب الكابتن لا يطلب رحلة.",
+      "error"
     );
 
-  };
+    return;
+
+  }
 
 
-$("#closeMap").onclick =
-  () => {
+  if (
+    !pickup ||
+    !destination
+  ) {
 
-    screen("home");
+    msg(
+      "حدد الانطلاق والوصول أولاً.",
+      "error"
+    );
 
-  };
+    return;
+
+  }
 
 
-$("#confirmDest").onclick =
-  async () => {
+  const price =
+    Number(
+      $("#price").value
+    );
 
-    if (!destination) {
+  const date =
+    $("#rideDate").value;
 
-      msg(
-        "حدد مكان الوصول أولاً",
-        "error"
+  const time =
+    $("#rideTime").value;
+
+
+  if (
+    !price ||
+    !date ||
+    !time
+  ) {
+
+    msg(
+      "اكتب السعر والتاريخ والوقت.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  try {
+
+    const fromPlace =
+      await reverse(
+        pickup.lat,
+        pickup.lng
       );
 
-      return;
 
-    }
-
-
-    const address =
+    const toPlace =
       await reverse(
         destination.lat,
         destination.lng
       );
 
 
-    $("#destText").innerHTML =
-      `🏁 <strong>${esc(address)}</strong>`;
+    const ride =
+      await addDoc(
+        collection(
+          db,
+          "rides"
+        ),
+        {
+
+          customerId:
+            user.uid,
+
+          customerName:
+            profile.name || "",
+
+          fromPlace,
+
+          toPlace,
+
+          pickupCoords:
+            pickup,
+
+          destinationCoords:
+            destination,
+
+          price,
+
+          passengers:
+            Number(
+              $("#passengers").value
+            ),
+
+          notes:
+            $("#notes")
+              .value
+              .trim(),
+
+          rideDate:
+            date,
+
+          rideTime:
+            time,
+
+          dayName:
+            dayName(date),
+
+          status:
+            "open",
+
+          captainId:
+            "",
+
+          createdAt:
+            serverTimestamp()
+
+        }
+      );
 
 
-    screen("home");
+    localStorage.setItem(
+      "lastRide",
+      ride.id
+    );
+
+
+    $("#price").value = "";
+
+    $("#notes").value = "";
 
 
     msg(
-      "تم تحديد مكان الوصول بدقة ✅",
+      "تم نشر الرحلة للكباتن 🚕",
       "success"
     );
 
-  };
+
+    screen("rides");
+
+    loadCustomerRides();
 
 
-let searchTimer;
+  } catch (error) {
 
+    console.error(error);
 
-$("#search").oninput =
-  () => {
-
-    clearTimeout(
-      searchTimer
+    msg(
+      "تعذر إرسال الرحلة.",
+      "error"
     );
 
+  }
 
-    searchTimer =
-      setTimeout(
-        () =>
-          searchPlaces(
-            $("#search").value.trim()
-          ),
-        650
-      );
-
-  };
-
-
-$("#rideDate").onchange =
-  () => {
-
-    const day =
-      dayName(
-        $("#rideDate").value
-      );
-
-
-    $("#dayPreview").textContent =
-      day
-        ? `📆 ${day}`
-        : "";
-
-  };
+};
 
 
 /* ======================================================
-   CREATE RIDE
-====================================================== */
+   REGISTER ROLE
+   ====================================================== */
 
-$("#request").onclick =
-  async () => {
+$("#role").onchange = () => {
 
-    if (!user) {
+  $("#captainFields").style.display =
+    $("#role").value === "captain"
+      ? "block"
+      : "none";
 
-      screen("login");
-
-      return;
-
-    }
-
-
-    if (
-      profile?.role !== "customer"
-    ) {
-
-      msg(
-        "حساب الكابتن لا يطلب رحلة.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    if (
-      !pickup ||
-      !destination
-    ) {
-
-      msg(
-        "حدد الانطلاق والوصول أولاً.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    const price =
-      Number(
-        $("#price").value
-      );
-
-
-    const date =
-      $("#rideDate").value;
-
-
-    const time =
-      $("#rideTime").value;
-
-
-    if (
-      !price ||
-      !date ||
-      !time
-    ) {
-
-      msg(
-        "اكتب السعر والتاريخ والوقت.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      const fromPlace =
-        await reverse(
-          pickup.lat,
-          pickup.lng
-        );
-
-
-      const toPlace =
-        await reverse(
-          destination.lat,
-          destination.lng
-        );
-
-
-      const ride =
-        await addDoc(
-          collection(
-            db,
-            "rides"
-          ),
-          {
-
-            customerId:
-              user.uid,
-
-            customerName:
-              profile.name || "",
-
-            fromPlace,
-
-            toPlace,
-
-            pickupCoords:
-              pickup,
-
-            destinationCoords:
-              destination,
-
-            price,
-
-            passengers:
-              Number(
-                $("#passengers").value
-              ),
-
-            notes:
-              $("#notes").value.trim(),
-
-            rideDate:
-              date,
-
-            rideTime:
-              time,
-
-            dayName:
-              dayName(date),
-
-            status:
-              "open",
-
-            captainId:
-              "",
-
-            createdAt:
-              serverTimestamp()
-
-          }
-        );
-
-
-      localStorage.setItem(
-        "lastRide",
-        ride.id
-      );
-
-
-      $("#price").value = "";
-
-      $("#notes").value = "";
-
-
-      msg(
-        "تم نشر الرحلة للكباتن 🚕",
-        "success"
-      );
-
-
-      screen("rides");
-
-      loadCustomerRides();
-
-    } catch (error) {
-
-      console.error(error);
-
-      msg(
-        "تعذر إرسال الرحلة.",
-        "error"
-      );
-
-    }
-
-  };
+};
 
 
 /* ======================================================
-   REGISTER
-====================================================== */
+   OPEN REGISTER
+   ====================================================== */
 
-$("#role").onchange =
-  () => {
+$("#registerOpen").onclick = () => {
 
-    $("#captainFields").style.display =
-      $("#role").value === "captain"
-        ? "block"
-        : "none";
-
-  };
+  screen("register");
 
 
-$("#registerOpen").onclick =
-  () => {
+  if (!recaptcha) {
 
-    screen("register");
-
-
-    if (!recaptcha) {
-
-      recaptcha =
-        new RecaptchaVerifier(
-          auth,
-          "regRecaptcha",
-          {
-            size: "normal"
-          }
-        );
+    recaptcha =
+      new RecaptchaVerifier(
+        auth,
+        "regRecaptcha",
+        {
+          size: "normal"
+        }
+      );
 
 
-      recaptcha
-        .render()
-        .catch(console.error);
+    recaptcha
+      .render()
+      .catch(console.error);
 
-    }
+  }
 
-  };
+};
 
 
-$("#backLogin").onclick =
-  () => {
+/* ======================================================
+   BACK LOGIN
+   ====================================================== */
 
-    screen("login");
+$("#backLogin").onclick = () => {
 
-  };
+  screen("login");
+
+};
 
 
 /* ======================================================
    SEND OTP
-====================================================== */
+   ====================================================== */
 
 $("#sendCode").onclick =
   async () => {
@@ -1940,11 +1995,21 @@ $("#sendCode").onclick =
       $("#regPass").value;
 
 
+    const name =
+      $("#name")
+        .value
+        .trim();
+
+
+    const pass2 =
+      $("#regPass2").value;
+
+
     if (
-      !$("#name").value.trim() ||
+      !name ||
       !/^\+20\d{10}$/.test(p) ||
       pass.length < 6 ||
-      pass !== $("#regPass2").value
+      pass !== pass2
     ) {
 
       $("#regMsg").textContent =
@@ -1956,23 +2021,20 @@ $("#sendCode").onclick =
 
 
     if (
-      $("#role").value === "captain"
-    ) {
-
-      if (
+      $("#role").value === "captain" &&
+      (
         !$("#age").value ||
         Number($("#age").value) < 18 ||
         !$("#carType").value.trim() ||
         !$("#carModel").value.trim() ||
         !$("#plate").value.trim()
-      ) {
+      )
+    ) {
 
-        $("#regMsg").textContent =
-          "أكمل بيانات الكابتن.";
+      $("#regMsg").textContent =
+        "أكمل بيانات الكابتن.";
 
-        return;
-
-      }
+      return;
 
     }
 
@@ -1996,14 +2058,38 @@ $("#sendCode").onclick =
 
 
       $("#regMsg").textContent =
-        "تم إرسال الكود.";
+        "تم إرسال كود التحقق إلى الرقم.";
+
 
     } catch (error) {
 
       console.error(error);
 
-      $("#regMsg").textContent =
-        error.message;
+
+      if (
+        error.code ===
+        "auth/operation-not-allowed"
+      ) {
+
+        $("#regMsg").textContent =
+          "تسجيل الدخول برقم الهاتف غير مفعل في Firebase.";
+
+      } else if (
+        error.code ===
+        "auth/invalid-phone-number"
+      ) {
+
+        $("#regMsg").textContent =
+          "رقم الموبايل غير صحيح.";
+
+      } else {
+
+        $("#regMsg").textContent =
+          error.message ||
+          "تعذر إرسال الكود.";
+
+      }
+
 
       $("#sendCode").disabled =
         false;
@@ -2015,7 +2101,7 @@ $("#sendCode").onclick =
 
 /* ======================================================
    FINISH REGISTER
-====================================================== */
+   ====================================================== */
 
 $("#finishReg").onclick =
   async () => {
@@ -2031,15 +2117,39 @@ $("#finishReg").onclick =
       }
 
 
+      const code =
+        $("#code")
+          .value
+          .trim();
+
+
+      if (!code) {
+
+        $("#regMsg").textContent =
+          "اكتب كود التحقق.";
+
+        return;
+
+      }
+
+
       const p =
         phone(
           $("#regPhone").value
         );
 
 
+      const pass =
+        $("#regPass").value;
+
+
+      /*
+       * تأكيد OTP
+       */
+
       const credential =
         await confirmationResult.confirm(
-          $("#code").value.trim()
+          code
         );
 
 
@@ -2047,25 +2157,90 @@ $("#finishReg").onclick =
         credential.user;
 
 
-      await linkWithCredential(
-        newUser,
+      /*
+       * ربط كلمة السر بحساب الهاتف
+       */
+
+      const email =
+        loginEmail(p);
+
+
+      const emailCredential =
         EmailAuthProvider.credential(
-          loginEmail(p),
-          $("#regPass").value
-        )
-      ).catch(error => {
+          email,
+          pass
+        );
+
+
+      try {
+
+        await linkWithCredential(
+          newUser,
+          emailCredential
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          "LINK ERROR:",
+          error
+        );
+
+
+        /*
+         * الحساب بالفعل مربوط بكلمة السر
+         * نكمل عادي.
+         */
 
         if (
-          error.code !==
+          error.code ===
           "auth/provider-already-linked"
         ) {
+
+          console.log(
+            "Email/password already linked."
+          );
+
+
+        /*
+         * المشكلة التي كانت بتظهر للمستخدم
+         */
+
+        } else if (
+          error.code ===
+          "auth/email-already-in-use"
+        ) {
+
+          await signOut(auth);
+
+
+          $("#regMsg").textContent =
+            "الرقم ده مرتبط بحساب قديم في Firebase. " +
+            "لو ده رقم اختبار، احذف حساب الاختبار من " +
+            "Firebase > Authentication > Users " +
+            "وبعدين جرّب التسجيل تاني.";
+
+
+          $("#sendCode").disabled =
+            false;
+
+
+          return;
+
+
+        } else {
 
           throw error;
 
         }
 
-      });
+      }
 
+
+      /* ==================================================
+         CREATE USER PROFILE
+         ================================================== */
 
       const role =
         $("#role").value;
@@ -2077,7 +2252,9 @@ $("#finishReg").onclick =
           newUser.uid,
 
         name:
-          $("#name").value.trim(),
+          $("#name")
+            .value
+            .trim(),
 
         phone:
           p,
@@ -2099,6 +2276,10 @@ $("#finishReg").onclick =
       };
 
 
+      /*
+       * بيانات الكابتن
+       */
+
       if (
         role === "captain"
       ) {
@@ -2108,14 +2289,24 @@ $("#finishReg").onclick =
             $("#age").value
           );
 
+
         data.carType =
-          $("#carType").value.trim();
+          $("#carType")
+            .value
+            .trim();
+
 
         data.carModel =
-          $("#carModel").value.trim();
+          $("#carModel")
+            .value
+            .trim();
+
 
         data.plateNumber =
-          $("#plate").value.trim();
+          $("#plate")
+            .value
+            .trim();
+
 
         data.captainStatus =
           "available";
@@ -2136,9 +2327,16 @@ $("#finishReg").onclick =
       );
 
 
-      profile = data;
+      profile =
+        data;
 
-      user = newUser;
+
+      user =
+        newUser;
+
+
+      $("#regMsg").textContent =
+        "تم إنشاء الحساب بنجاح ✅";
 
 
       msg(
@@ -2148,10 +2346,8 @@ $("#finishReg").onclick =
 
 
       /*
-        هنا أهم جزء:
-        لو عميل → صفحة العميل
-        لو كابتن → صفحة الكابتن
-      */
+       * تحويل المستخدم حسب نوع الحساب
+       */
 
       if (
         role === "captain"
@@ -2172,7 +2368,54 @@ $("#finishReg").onclick =
 
     } catch (error) {
 
-      console.error(error);
+      console.error(
+        "REGISTER ERROR:",
+        error
+      );
+
+
+      /*
+       * رسائل أخطاء مفهومة
+       */
+
+      if (
+        error.code ===
+        "auth/invalid-verification-code"
+      ) {
+
+        $("#regMsg").textContent =
+          "كود التحقق غير صحيح.";
+
+        return;
+
+      }
+
+
+      if (
+        error.code ===
+        "auth/code-expired"
+      ) {
+
+        $("#regMsg").textContent =
+          "كود التحقق انتهت صلاحيته. اطلب كود جديد.";
+
+        return;
+
+      }
+
+
+      if (
+        error.code ===
+        "auth/email-already-in-use"
+      ) {
+
+        $("#regMsg").textContent =
+          "الرقم مرتبط بحساب قديم. استخدم تسجيل الدخول أو احذف حساب الاختبار من Firebase.";
+
+        return;
+
+      }
+
 
       $("#regMsg").textContent =
         error.message ||
@@ -2185,7 +2428,7 @@ $("#finishReg").onclick =
 
 /* ======================================================
    LOGIN
-====================================================== */
+   ====================================================== */
 
 $("#loginBtn").onclick =
   async () => {
@@ -2227,14 +2470,21 @@ $("#loginBtn").onclick =
 
 
       $("#loginMsg").textContent =
-        "تم الدخول ✅";
+        "";
+
 
     } catch (error) {
 
-      console.error(error);
+      console.error(
+        "LOGIN ERROR:",
+        error
+      );
+
 
       $("#loginMsg").textContent =
         "رقم الموبايل أو كلمة المرور غير صحيحة.";
+
+    } finally {
 
       $("#loginBtn").disabled =
         false;
@@ -2246,7 +2496,7 @@ $("#loginBtn").onclick =
 
 /* ======================================================
    PROFILE
-====================================================== */
+   ====================================================== */
 
 async function loadProfile() {
 
@@ -2279,28 +2529,50 @@ async function loadProfile() {
   $("#profileInfo").innerHTML = `
 
     <div class="profile-row">
-      <span>👤 الاسم</span>
+
+      <span>
+        👤 الاسم
+      </span>
+
       <strong>
         ${esc(profile.name)}
       </strong>
+
     </div>
 
+
     <div class="profile-row">
-      <span>📱 الموبايل</span>
+
+      <span>
+        📱 الموبايل
+      </span>
+
       <strong>
         ${esc(profile.phone)}
       </strong>
+
     </div>
 
+
     <div class="profile-row">
-      <span>🔢 رقم الحساب</span>
+
+      <span>
+        🔢 رقم الحساب
+      </span>
+
       <strong>
         ${esc(profile.accountNumber)}
       </strong>
+
     </div>
 
+
     <div class="profile-row">
-      <span>النوع</span>
+
+      <span>
+        النوع
+      </span>
+
       <strong>
         ${
           profile.role === "captain"
@@ -2308,7 +2580,9 @@ async function loadProfile() {
             : "👤 عميل"
         }
       </strong>
+
     </div>
+
 
     ${
       profile.role === "captain"
@@ -2316,21 +2590,32 @@ async function loadProfile() {
         ? `
 
           <div class="profile-row">
-            <span>🚘 العربية</span>
+
+            <span>
+              🚘 العربية
+            </span>
+
             <strong>
               ${esc(profile.carType)}
               ${esc(profile.carModel)}
               -
               ${esc(profile.plateNumber)}
             </strong>
+
           </div>
 
+
           <div class="profile-row">
-            <span>⭐ التقييم</span>
+
+            <span>
+              ⭐ التقييم
+            </span>
+
             <strong>
               ${Number(profile.rating || 0).toFixed(1)}
               (${profile.ratingCount || 0})
             </strong>
+
           </div>
 
         `
@@ -2346,7 +2631,7 @@ async function loadProfile() {
 
 /* ======================================================
    CUSTOMER RIDE CARD
-====================================================== */
+   ====================================================== */
 
 function customerCard(ride) {
 
@@ -2354,45 +2639,45 @@ function customerCard(ride) {
 
 
   if (
-    [
-      "accepted",
-      "captain_to_customer",
-      "arrived",
-      "started",
-      "completed"
-    ].includes(
-      ride.status
-    )
+    ride.status === "accepted" ||
+    ride.status === "captain_to_customer" ||
+    ride.status === "arrived" ||
+    ride.status === "started" ||
+    ride.status === "completed"
   ) {
 
-    if (
+    contact =
       ride.captainPhone
-    ) {
 
-      contact = `
+        ? `
 
-        <div class="contact-box">
+          <div class="contact-box">
 
-          📞
+            📞
 
-          <a
-            href="tel:${esc(ride.captainPhone)}"
-          >
-            ${esc(ride.captainPhone)}
-          </a>
+            <a
+              href="tel:${esc(
+                ride.captainPhone
+              )}">
 
-          —
+              ${esc(
+                ride.captainPhone
+              )}
 
-          ${esc(
-            ride.captainName ||
-            "الكابتن"
-          )}
+            </a>
 
-        </div>
+            —
 
-      `;
+            ${esc(
+              ride.captainName ||
+              "الكابتن"
+            )}
 
-    }
+          </div>
+
+        `
+
+        : "";
 
   }
 
@@ -2402,47 +2687,98 @@ function customerCard(ride) {
     <div class="card">
 
       <div class="ride-status">
-        ${statusText(ride.status)}
+
+        ${statusText(
+          ride.status
+        )}
+
       </div>
 
+
       <b>
-        📍 ${esc(ride.fromPlace)}
+        📍
+        ${esc(
+          ride.fromPlace
+        )}
       </b>
 
       <br>
 
-      🏁 ${esc(ride.toPlace)}
+
+      🏁
+      ${esc(
+        ride.toPlace
+      )}
 
 
       <p>
-        💰 ${ride.price} جنيه
+        💰
+        ${ride.price}
+        جنيه
         •
-        👥 ${ride.passengers}
+        👥
+        ${ride.passengers}
       </p>
 
 
       <p>
-        📅 ${formatDate(ride.rideDate)}
+        📅
+        ${formatDate(
+          ride.rideDate
+        )}
+
         •
-        ${esc(ride.dayName)}
+
+        ${esc(
+          ride.dayName
+        )}
+
         •
-        🕐 ${esc(ride.rideTime)}
+
+        🕐
+        ${esc(
+          ride.rideTime
+        )}
+
       </p>
 
 
       ${
         ride.notes
 
-          ? `<p>
-              📝 ${esc(ride.notes)}
-             </p>`
+          ? `
+            <p>
+              📝
+              ${esc(
+                ride.notes
+              )}
+            </p>
+          `
 
           : ""
-
       }
 
 
       ${contact}
+
+
+      ${
+        ride.status === "accepted"
+
+          ? `
+
+            <button
+              class="btn outline"
+              data-start-customer="${ride.id}">
+
+              📞 الكابتن قبل الرحلة
+
+            </button>
+
+          `
+
+          : ""
+      }
 
 
       ${
@@ -2452,15 +2788,15 @@ function customerCard(ride) {
 
             <button
               class="btn green"
-              data-complete-customer="${ride.id}"
-            >
+              data-complete-customer="${ride.id}">
+
               ✅ انتهت الرحلة
+
             </button>
 
           `
 
           : ""
-
       }
 
     </div>
@@ -2472,7 +2808,7 @@ function customerCard(ride) {
 
 /* ======================================================
    CUSTOMER RIDES
-====================================================== */
+   ====================================================== */
 
 async function loadCustomerRides() {
 
@@ -2515,18 +2851,25 @@ async function loadCustomerRides() {
 
         const rides =
           snapshot.docs
-
             .map(
               item => ({
-                id: item.id,
+                id:
+                  item.id,
+
                 ...item.data()
+
               })
             )
-
             .sort(
               (a, b) =>
-                (b.createdAt?.seconds || 0) -
-                (a.createdAt?.seconds || 0)
+                (
+                  b.createdAt?.seconds ||
+                  0
+                ) -
+                (
+                  a.createdAt?.seconds ||
+                  0
+                )
             );
 
 
@@ -2534,13 +2877,19 @@ async function loadCustomerRides() {
           rides.length
 
             ? rides
-                .map(customerCard)
+                .map(
+                  customerCard
+                )
                 .join("")
 
             : `
+
               <div class="card">
+
                 لا توجد رحلات حتى الآن.
+
               </div>
+
             `;
 
 
@@ -2552,13 +2901,15 @@ async function loadCustomerRides() {
 
             button.onclick =
               () =>
-
                 updateDoc(
+
                   doc(
                     db,
                     "rides",
-                    button.dataset.completeCustomer
+                    button.dataset
+                      .completeCustomer
                   ),
+
                   {
                     status:
                       "completed",
@@ -2566,6 +2917,7 @@ async function loadCustomerRides() {
                     completedAt:
                       serverTimestamp()
                   }
+
                 );
 
           });
@@ -2579,7 +2931,7 @@ async function loadCustomerRides() {
 
 /* ======================================================
    CAPTAIN
-====================================================== */
+   ====================================================== */
 
 async function loadCaptain() {
 
@@ -2589,9 +2941,13 @@ async function loadCaptain() {
 
     $("#captainList").innerHTML =
       `
-      <div class="card">
-        هذه الصفحة للكابتن فقط.
-      </div>
+
+        <div class="card">
+
+          هذه الصفحة للكابتن فقط.
+
+        </div>
+
       `;
 
     return;
@@ -2600,7 +2956,9 @@ async function loadCaptain() {
 
 
   $("#captainState").textContent =
-    profile.captainStatus === "available"
+
+    profile.captainStatus ===
+    "available"
 
       ? "🟢 أنت متاح لاستقبال الرحلات"
 
@@ -2634,99 +2992,122 @@ async function loadCaptain() {
 
       snapshot => {
 
-        const available =
-          profile.captainStatus ===
-          "available";
-
-
         $("#captainList").innerHTML =
 
-          available &&
+          profile.captainStatus ===
+            "available" &&
           snapshot.docs.length
 
-            ?
+            ? snapshot.docs
+                .map(
+                  item => {
 
-              snapshot.docs
-                .map(item => {
-
-                  const ride =
-                    item.data();
+                    const ride =
+                      item.data();
 
 
-                  return `
+                    return `
 
-                    <div class="card">
+                      <div class="card">
 
-                      <div class="ride-status">
-                        🆕 رحلة جديدة
+                        <div class="ride-status">
+
+                          🆕 رحلة جديدة
+
+                        </div>
+
+
+                        <b>
+                          📍
+                          ${esc(
+                            ride.fromPlace
+                          )}
+                        </b>
+
+                        <br>
+
+
+                        🏁
+                        ${esc(
+                          ride.toPlace
+                        )}
+
+
+                        <p>
+                          💰
+                          ${ride.price}
+                          جنيه
+                          •
+                          👥
+                          ${ride.passengers}
+                        </p>
+
+
+                        <p>
+                          📅
+                          ${formatDate(
+                            ride.rideDate
+                          )}
+
+                          •
+
+                          ${esc(
+                            ride.dayName
+                          )}
+
+                          •
+
+                          🕐
+                          ${esc(
+                            ride.rideTime
+                          )}
+
+                        </p>
+
+
+                        ${
+                          ride.notes
+
+                            ? `
+
+                              <p>
+                                📝
+                                ${esc(
+                                  ride.notes
+                                )}
+                              </p>
+
+                            `
+
+                            : ""
+                        }
+
+
+                        <button
+                          class="btn green"
+                          data-accept="${item.id}">
+
+                          ✅ قبول الرحلة
+
+                        </button>
+
                       </div>
 
-                      <b>
-                        📍
-                        ${esc(ride.fromPlace)}
-                      </b>
+                    `;
 
-                      <br>
-
-                      🏁
-                      ${esc(ride.toPlace)}
-
-
-                      <p>
-                        💰
-                        ${ride.price}
-                        جنيه
-                        •
-                        👥
-                        ${ride.passengers}
-                      </p>
-
-
-                      <p>
-                        📅
-                        ${formatDate(ride.rideDate)}
-                        •
-                        ${esc(ride.dayName)}
-                        •
-                        🕐
-                        ${esc(ride.rideTime)}
-                      </p>
-
-
-                      ${
-                        ride.notes
-
-                          ? `<p>
-                              📝
-                              ${esc(ride.notes)}
-                             </p>`
-
-                          : ""
-
-                      }
-
-
-                      <button
-                        class="btn green"
-                        data-accept="${item.id}"
-                      >
-                        ✅ قبول الرحلة
-                      </button>
-
-                    </div>
-
-                  `;
-
-                })
+                  }
+                )
                 .join("")
 
-            :
+            : `
 
-              `
               <div class="card">
+
                 لا توجد رحلات متاحة الآن.
+
               </div>
-              `;
+
+            `;
 
 
         document
@@ -2779,193 +3160,224 @@ async function loadCaptain() {
 
           snapshot.docs.length
 
-            ?
+            ? snapshot.docs
+                .map(
+                  item => {
 
-              snapshot.docs
-                .map(item => {
-
-                  const ride =
-                    item.data();
+                    const ride =
+                      item.data();
 
 
-                  return `
+                    return `
 
-                    <div class="card">
+                      <div class="card">
 
-                      <div class="ride-status">
-                        ${statusText(ride.status)}
+                        <div class="ride-status">
+
+                          ${statusText(
+                            ride.status
+                          )}
+
+                        </div>
+
+
+                        <b>
+                          📍
+                          ${esc(
+                            ride.fromPlace
+                          )}
+                        </b>
+
+                        <br>
+
+
+                        🏁
+                        ${esc(
+                          ride.toPlace
+                        )}
+
+
+                        <p>
+                          💰
+                          ${ride.price}
+                          جنيه
+                          •
+                          👥
+                          ${ride.passengers}
+                        </p>
+
+
+                        <p>
+                          📅
+                          ${formatDate(
+                            ride.rideDate
+                          )}
+
+                          •
+
+                          ${esc(
+                            ride.dayName
+                          )}
+
+                          •
+
+                          🕐
+                          ${esc(
+                            ride.rideTime
+                          )}
+
+                        </p>
+
+
+                        ${
+                          ride.notes
+
+                            ? `
+
+                              <p>
+                                📝
+                                ${esc(
+                                  ride.notes
+                                )}
+                              </p>
+
+                            `
+
+                            : ""
+                        }
+
+
+                        ${
+                          ride.customerPhone
+
+                            ? `
+
+                              <div class="contact-box">
+
+                                📞
+
+                                <a
+                                  href="tel:${esc(
+                                    ride.customerPhone
+                                  )}">
+
+                                  ${esc(
+                                    ride.customerPhone
+                                  )}
+
+                                </a>
+
+                                —
+
+                                ${esc(
+                                  ride.customerName ||
+                                  "العميل"
+                                )}
+
+                              </div>
+
+                            `
+
+                            : ""
+                        }
+
+
+                        ${
+                          ride.status ===
+                          "accepted"
+
+                            ? `
+
+                              <button
+                                class="btn primary"
+                                data-customer-route="${item.id}">
+
+                                🚗 أنا في الطريق للعميل
+
+                              </button>
+
+                            `
+
+                            : ""
+                        }
+
+
+                        ${
+                          ride.status ===
+                          "captain_to_customer"
+
+                            ? `
+
+                              <button
+                                class="btn green"
+                                data-arrived="${item.id}">
+
+                                📍 وصلت للعميل
+
+                              </button>
+
+                            `
+
+                            : ""
+                        }
+
+
+                        ${
+                          ride.status ===
+                          "arrived"
+
+                            ? `
+
+                              <button
+                                class="btn primary"
+                                data-start="${item.id}">
+
+                                ▶️ بدء الرحلة
+
+                              </button>
+
+                            `
+
+                            : ""
+                        }
+
+
+                        ${
+                          ride.status ===
+                          "started"
+
+                            ? `
+
+                              <button
+                                class="btn green"
+                                data-complete="${item.id}">
+
+                                🏁 إنهاء الرحلة
+
+                              </button>
+
+                            `
+
+                            : ""
+                        }
+
                       </div>
 
+                    `;
 
-                      <b>
-                        📍
-                        ${esc(ride.fromPlace)}
-                      </b>
-
-                      <br>
-
-                      🏁
-                      ${esc(ride.toPlace)}
-
-
-                      <p>
-                        💰
-                        ${ride.price}
-                        جنيه
-                        •
-                        👥
-                        ${ride.passengers}
-                      </p>
-
-
-                      <p>
-                        📅
-                        ${formatDate(ride.rideDate)}
-                        •
-                        ${esc(ride.dayName)}
-                        •
-                        🕐
-                        ${esc(ride.rideTime)}
-                      </p>
-
-
-                      ${
-                        ride.notes
-
-                          ? `<p>
-                              📝
-                              ${esc(ride.notes)}
-                             </p>`
-
-                          : ""
-
-                      }
-
-
-                      ${
-                        ride.customerPhone
-
-                          ? `
-
-                            <div class="contact-box">
-
-                              📞
-
-                              <a
-                                href="tel:${esc(
-                                  ride.customerPhone
-                                )}"
-                              >
-                                ${esc(
-                                  ride.customerPhone
-                                )}
-                              </a>
-
-                              —
-
-                              ${esc(
-                                ride.customerName ||
-                                "العميل"
-                              )}
-
-                            </div>
-
-                          `
-
-                          : ""
-
-                      }
-
-
-                      ${
-                        ride.status === "accepted"
-
-                          ? `
-
-                            <button
-                              class="btn primary"
-                              data-customer-route="${item.id}"
-                            >
-                              🚗 أنا في الطريق للعميل
-                            </button>
-
-                          `
-
-                          : ""
-
-                      }
-
-
-                      ${
-                        ride.status === "captain_to_customer"
-
-                          ? `
-
-                            <button
-                              class="btn green"
-                              data-arrived="${item.id}"
-                            >
-                              📍 وصلت للعميل
-                            </button>
-
-                          `
-
-                          : ""
-
-                      }
-
-
-                      ${
-                        ride.status === "arrived"
-
-                          ? `
-
-                            <button
-                              class="btn primary"
-                              data-start="${item.id}"
-                            >
-                              ▶️ بدء الرحلة
-                            </button>
-
-                          `
-
-                          : ""
-
-                      }
-
-
-                      ${
-                        ride.status === "started"
-
-                          ? `
-
-                            <button
-                              class="btn green"
-                              data-complete="${item.id}"
-                            >
-                              🏁 إنهاء الرحلة
-                            </button>
-
-                          `
-
-                          : ""
-
-                      }
-
-                    </div>
-
-                  `;
-
-                })
+                  }
+                )
                 .join("")
 
-            :
+            : `
 
-              `
               <div class="card">
+
                 لا توجد رحلات قبلتها.
+
               </div>
-              `;
+
+            `;
 
 
         bindCaptainActions();
@@ -2979,7 +3391,7 @@ async function loadCaptain() {
 
 /* ======================================================
    CAPTAIN ACTIONS
-====================================================== */
+   ====================================================== */
 
 function bindCaptainActions() {
 
@@ -2991,20 +3403,24 @@ function bindCaptainActions() {
 
       button.onclick =
         () =>
-
           updateDoc(
+
             doc(
               db,
               "rides",
-              button.dataset.customerRoute
+              button.dataset
+                .customerRoute
             ),
+
             {
               status:
                 "captain_to_customer",
 
               updatedAt:
                 serverTimestamp()
+
             }
+
           );
 
     });
@@ -3018,20 +3434,24 @@ function bindCaptainActions() {
 
       button.onclick =
         () =>
-
           updateDoc(
+
             doc(
               db,
               "rides",
-              button.dataset.arrived
+              button.dataset
+                .arrived
             ),
+
             {
               status:
                 "arrived",
 
               updatedAt:
                 serverTimestamp()
+
             }
+
           );
 
     });
@@ -3045,20 +3465,24 @@ function bindCaptainActions() {
 
       button.onclick =
         () =>
-
           updateDoc(
+
             doc(
               db,
               "rides",
-              button.dataset.start
+              button.dataset
+                .start
             ),
+
             {
               status:
                 "started",
 
               startedAt:
                 serverTimestamp()
+
             }
+
           );
 
     });
@@ -3072,20 +3496,24 @@ function bindCaptainActions() {
 
       button.onclick =
         () =>
-
           updateDoc(
+
             doc(
               db,
               "rides",
-              button.dataset.complete
+              button.dataset
+                .complete
             ),
+
             {
               status:
                 "completed",
 
               completedAt:
                 serverTimestamp()
+
             }
+
           );
 
     });
@@ -3095,7 +3523,7 @@ function bindCaptainActions() {
 
 /* ======================================================
    ACCEPT RIDE
-====================================================== */
+   ====================================================== */
 
 async function acceptRide(id) {
 
@@ -3115,7 +3543,7 @@ async function acceptRide(id) {
       db,
       async transaction => {
 
-        const rideRef =
+        const reference =
           doc(
             db,
             "rides",
@@ -3125,13 +3553,27 @@ async function acceptRide(id) {
 
         const snapshot =
           await transaction.get(
-            rideRef
+            reference
           );
 
 
         if (
-          !snapshot.exists() ||
-          snapshot.data().status !== "open"
+          !snapshot.exists()
+        ) {
+
+          throw Error(
+            "الرحلة غير موجودة"
+          );
+
+        }
+
+
+        const ride =
+          snapshot.data();
+
+
+        if (
+          ride.status !== "open"
         ) {
 
           throw Error(
@@ -3142,7 +3584,7 @@ async function acceptRide(id) {
 
 
         transaction.update(
-          rideRef,
+          reference,
           {
 
             status:
@@ -3180,9 +3622,11 @@ async function acceptRide(id) {
 
     loadCaptain();
 
+
   } catch (error) {
 
     console.error(error);
+
 
     msg(
       error.message ||
@@ -3197,7 +3641,7 @@ async function acceptRide(id) {
 
 /* ======================================================
    CAPTAIN AVAILABILITY
-====================================================== */
+   ====================================================== */
 
 $("#captainAvailable").onclick =
   async () => {
@@ -3212,15 +3656,18 @@ $("#captainAvailable").onclick =
 
 
     await updateDoc(
+
       doc(
         db,
         "users",
         user.uid
       ),
+
       {
         captainStatus:
           "available"
       }
+
     );
 
 
@@ -3246,15 +3693,18 @@ $("#captainUnavailable").onclick =
 
 
     await updateDoc(
+
       doc(
         db,
         "users",
         user.uid
       ),
+
       {
         captainStatus:
           "unavailable"
       }
+
     );
 
 
@@ -3269,13 +3719,14 @@ $("#captainUnavailable").onclick =
 
 /* ======================================================
    NAVIGATION
-====================================================== */
+   ====================================================== */
 
 $("#navHome").onclick =
   () => {
 
     if (
-      profile?.role === "captain"
+      profile?.role ===
+      "captain"
     ) {
 
       screen("captain");
@@ -3293,7 +3744,8 @@ $("#navRides").onclick =
   () => {
 
     if (
-      profile?.role !== "customer"
+      profile?.role !==
+      "customer"
     ) {
 
       msg(
@@ -3317,7 +3769,8 @@ $("#navCaptain").onclick =
   () => {
 
     if (
-      profile?.role !== "captain"
+      profile?.role !==
+      "captain"
     ) {
 
       msg(
@@ -3350,15 +3803,6 @@ $("#navProfile").onclick =
 $("#profileTop").onclick =
   async () => {
 
-    if (!user) {
-
-      screen("login");
-
-      return;
-
-    }
-
-
     await loadProfile();
 
     screen("profile");
@@ -3368,7 +3812,7 @@ $("#profileTop").onclick =
 
 /* ======================================================
    LOGOUT
-====================================================== */
+   ====================================================== */
 
 $("#logout").onclick =
   async () => {
@@ -3377,8 +3821,6 @@ $("#logout").onclick =
 
       watchRides();
 
-      watchRides = null;
-
     }
 
 
@@ -3386,16 +3828,12 @@ $("#logout").onclick =
 
       watchCustomer();
 
-      watchCustomer = null;
-
     }
 
 
     if (watchCaptainAccepted) {
 
       watchCaptainAccepted();
-
-      watchCaptainAccepted = null;
 
     }
 
@@ -3415,19 +3853,15 @@ $("#logout").onclick =
 
 /* ======================================================
    AUTH STATE
-====================================================== */
+   ====================================================== */
 
 onAuthStateChanged(
   auth,
   async currentUser => {
 
-    user = currentUser;
+    user =
+      currentUser;
 
-
-    /*
-      لو مفيش تسجيل دخول:
-      افتح تسجيل الدخول فقط.
-    */
 
     if (!currentUser) {
 
@@ -3440,69 +3874,43 @@ onAuthStateChanged(
     }
 
 
-    /*
-      المستخدم مسجل بالفعل:
-      هات بياناته.
-    */
-
     await loadProfile();
 
 
-    /*
-      كابتن
-    */
-
     if (
-      profile?.role === "captain"
+      profile?.role ===
+      "captain"
     ) {
 
       screen("captain");
 
       loadCaptain();
 
-      return;
 
-    }
-
-
-    /*
-      عميل
-    */
-
-    if (
-      profile?.role === "customer"
+    } else if (
+      profile?.role ===
+      "customer"
     ) {
 
       screen("home");
 
       loadCustomerRides();
 
-      return;
+
+    } else {
+
+      await signOut(auth);
+
+      screen("login");
 
     }
-
-
-    /*
-      لو الحساب موجود في Firebase
-      لكن مفيش role صحيح.
-    */
-
-    await signOut(auth);
-
-    screen("login");
 
   }
 );
 
 
 /* ======================================================
-   INITIAL SCREEN
-====================================================== */
-
-/*
-  التطبيق يبدأ دائمًا من هنا.
-  onAuthStateChanged بعد ذلك يقرر:
-  عميل أم كابتن.
-*/
+   START
+   ====================================================== */
 
 screen("login");
